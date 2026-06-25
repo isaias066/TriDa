@@ -1,0 +1,8 @@
+.up { padding: 24px; animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+.up-h { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.up-h h2 { font-size: 24px; font-weight: 800; color: var(--text-primary); margin: 0; letter-spacing: -0.5px; }
+.up-h p { font-size: 13px; color: var(--text-secondary); margin: 4px 0 0; }
+.up-tabs { display: flex; gap: 4px; padding: 4px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; }
+.up-tab { padding: 7px 16px; background: transparent; border: none; border-radius: 8px; color: var(--text-secondary); font-family: 'Inter',-apple-system,sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.up-tab.act { background: rgba(99,102,241,0.1); color: #818CF8; }
