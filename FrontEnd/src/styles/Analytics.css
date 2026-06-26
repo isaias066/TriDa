@@ -1,0 +1,208 @@
+/* ============================================
+   ANALYTICS PAGE
+   ============================================ */
+
+.an-page {
+  padding: 24px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.3s ease-out;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Header (fijo arriba) ── */
+.an-h {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
+.an-h h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.an-h p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+
+/* ── Contenedor scrolleable (métricas + gráficos) ── */
+.an-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+}
+
+/* ── Tarjetas de métricas (arriba) ── */
+.an-m {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.mc {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mr {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.mi {
+  display: flex;
+  flex-direction: column;
+}
+
+.mv {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.ml {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ── Grid de 2 columnas (gráficos) ── */
+.an-g {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ac {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.ac h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 14px;
+}
+
+/* ── Barras horizontales ── */
+.ab {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.abr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.bln {
+  min-width: 120px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rbt {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rbf {
+  height: 100%;
+  background: linear-gradient(90deg, #6366F1, #8B5CF6);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.rf-alt {
+  background: linear-gradient(90deg, #06B6D4, #10B981);
+}
+
+.rf-ch {
+  background: linear-gradient(90deg, #F59E0B, #FBBF24);
+}
+
+.blc {
+  min-width: 28px;
+  text-align: right;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ab-f {
+  min-width: 24px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ============================================
+   SCROLLBAR ESTILIZADA
+   ============================================ */
+
+.an-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.an-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 8px;
+}
+
+.an-scroll::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.an-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+/* Firefox */
+.an-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
+
+/* Modo claro */
+[data-theme="light"] .an-scroll::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+[data-theme="light"] .an-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
