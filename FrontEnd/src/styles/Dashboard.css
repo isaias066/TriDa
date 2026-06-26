@@ -29,6 +29,7 @@
   flex-direction: column;
 }
 
+/* ── Top Bar ── */
 .float-top {
   display: flex;
   justify-content: space-between;
@@ -67,6 +68,7 @@
   gap: 10px;
 }
 
+/* View toggle */
 .view-toggle {
   display: flex;
   align-items: center;
@@ -90,6 +92,7 @@
   color: rgba(255,255,255,0.8);
 }
 
+/* Live pill */
 .live-pill {
   display: flex;
   align-items: center;
@@ -109,6 +112,7 @@
   50% { box-shadow: 0 0 20px rgba(48,209,88,0.1); }
 }
 
+/* Clock */
 .float-clock {
   display: flex;
   align-items: center;
@@ -125,6 +129,7 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
+/* ── Stats Row ── */
 .float-stats {
   display: flex;
   gap: 8px;
@@ -184,6 +189,7 @@
   margin-top: 2px;
 }
 
+/* ── Right Alerts Panel ── */
 .float-alerts {
   position: absolute;
   top: 130px;
@@ -244,6 +250,7 @@
   font-size: 12px;
 }
 
+/* Alert items */
 .fa-item {
   display: flex;
   gap: 10px;
@@ -278,6 +285,7 @@
 .fa-amt { font-weight: 700; color: rgba(255,255,255,0.7); }
 .fa-risk { font-weight: 800; }
 
+/* ── Bottom Risk Rings ── */
 .float-risk {
   position: absolute;
   bottom: 14px;
@@ -328,6 +336,73 @@
   letter-spacing: 0.6px;
 }
 
+/* ── Hint (del viejo) ── */
+.float-hint {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  background: rgba(10,10,14,0.3);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 100px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  font-weight: 500;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: hintFade 6s ease forwards;
+}
+@keyframes hintFade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Leaflet Popup (Dashboard) (del viejo) ── */
+.dmpop {
+  font-family: Inter, -apple-system, sans-serif;
+  font-size: 12px;
+  min-width: 180px;
+}
+.dmpop-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-left: 3px solid;
+  background: rgba(255,255,255,0.03);
+  margin: -12px -14px 10px;
+}
+.dmpop-h strong { font-size: 12px; font-weight: 700; color: #f5f5f7; }
+.dmpop-h span { font-weight: 800; font-size: 13px; }
+.dmpop-b { display: flex; flex-direction: column; gap: 5px; }
+.dmpr { display: flex; justify-content: space-between; gap: 12px; }
+.dmpr span { color: rgba(255,255,255,0.4); }
+.dmpr strong { color: #f5f5f7; font-weight: 600; }
+
+/* Override Leaflet popup styles in dashboard (del viejo) */
+.dash-leaflet .leaflet-popup-content-wrapper {
+  background: rgba(10,10,14,0.88) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4) !important;
+  padding: 0 !important;
+}
+.dash-leaflet .leaflet-popup-content {
+  margin: 14px !important;
+  font-family: Inter, -apple-system, sans-serif !important;
+  font-size: 12px !important;
+  color: #f5f5f7 !important;
+}
+.dash-leaflet .leaflet-popup-tip {
+  background: rgba(10,10,14,0.88) !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Light Theme
+   ═══════════════════════════════════════════════════════ */
 [data-theme="light"] .float-brand h1 {
   color: rgba(0,0,0,0.85);
   text-shadow: 0 2px 12px rgba(255,255,255,0.4);
@@ -380,3 +455,21 @@
 [data-theme="light"] .fr-ring { background: rgba(255,255,255,0.3); }
 [data-theme="light"] .fr-label { color: rgba(0,0,0,0.25); }
 [data-theme="light"] .fa-empty { color: rgba(0,0,0,0.25); }
+
+/* Light theme — clases del viejo */
+[data-theme="light"] .float-hint {
+  background: rgba(255,255,255,0.4);
+  border-color: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.3);
+}
+[data-theme="light"] .dash-leaflet .leaflet-popup-content-wrapper {
+  background: rgba(255,255,255,0.92) !important;
+  border-color: rgba(0,0,0,0.08) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.08) !important;
+}
+[data-theme="light"] .dash-leaflet .leaflet-popup-content { color: #1d1d1f !important; }
+[data-theme="light"] .dash-leaflet .leaflet-popup-tip { background: rgba(255,255,255,0.92) !important; }
+[data-theme="light"] .dmpop-h { background: rgba(0,0,0,0.02); }
+[data-theme="light"] .dmpop-h strong { color: #1d1d1f; }
+[data-theme="light"] .dmpr span { color: rgba(0,0,0,0.35); }
+[data-theme="light"] .dmpr strong { color: #1d1d1f; }

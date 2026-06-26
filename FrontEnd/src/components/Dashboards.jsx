@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useTheme } from '../store/Context';
-import { getClientes, getTransacciones, getAlertas } from '../services/conexion'; // Conectamos todas las APIs reales
+import { useTheme, useBank } from '../store/Context';
+import { getClientes, getTransacciones, getAlertas } from '../services/conexion';
 import { ALERT_LEVELS } from '../data/mockData';
 import {
   Shield, AlertTriangle, Ban, Clock, DollarSign, Activity, Zap,
@@ -9,83 +9,120 @@ import {
 import '../styles/Dashboard.css';
 
 const RC = { low: '#30D158', medium: '#FFD60A', high: '#FF9F0A', critical: '#FF453A' };
-const fmt = n => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n || 0);
 
-export default function Dashboard() {
-  const { theme } = useTheme();
-  const [time, setTime] = useState(new Date());
-  const [viewMode, setViewMode] = useState('globe');
-  
-  // Estados para almacenar datos reales de la BD
-  const [totalClientes, setTotalClientes] = useState(0);
-  const [transacciones, setTransacciones] = useState([]);
-  const [alertasLista, setAlertasLista] = useState([]);
-  const [loading, setLoading] = useState(true);
+const fmt = n =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency', currency: 'COP', minimumFractionDigits: 0
+  }).format(n || 0);
+
+const getRiskColor = (nivel = '') => {
+  const n = (nivel || '').toString().toLowerCase().trim();
+  if (n === 'bajo'   || n === 'low')                         return RC.low;
+  if (n === 'medio'  || n === 'medium' || n === 'moderate')  return RC.medium;
+  if (n === 'alto'   || n === 'high')                        return RC.high;
+  return RC.critical;
+};
+
+const fmtTime = (fecha) => {
+  if (!fecha) return '--:--';
+  const d = new Date(fecha);
+  return isNaN(d.getTime())
+    ? '--:--'
+    : d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+};
+
+export default function Dashboards() {
+  const { theme }                              = useTheme();
+  const { selectedBank }                       = useBank();
+  const [time, setTime]                        = useState(new Date());
+  const [viewMode, setViewMode]                = useState('globe');
+  const [totalClientes, setTotalClientes]      = useState(0);
+  const [transacciones, setTransacciones]      = useState([]);
+  const [alertasLista, setAlertasLista]        = useState([]);
+  const [loading, setLoading]                  = useState(true);
 
   useEffect(() => {
     const iv = setInterval(() => setTime(new Date()), 1000);
-    
-    async function obtenerDatosDeBaseDeDatos() {
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    const banco = selectedBank !== 'all' ? selectedBank : undefined;
+
+    async function obtenerDatos() {
       try {
-        // Ejecutamos llamados en paralelo para que no se bloqueen entre sí
         const [datosClientes, datosTx, datosAlertas] = await Promise.all([
           getClientes().catch(() => []),
-          getTransacciones().catch(() => []),
-          getAlertas().catch(() => [])
+          getTransacciones(banco).catch(() => []),
+          getAlertas().catch(() => []),
         ]);
-
         setTotalClientes(datosClientes ? datosClientes.length : 0);
         setTransacciones(datosTx || []);
         setAlertasLista(datosAlertas || []);
       } catch (e) {
-        console.error("Error cargando métricas en Dashboard:", e);
+        console.error('Error cargando Dashboard:', e);
       } finally {
         setLoading(false);
       }
     }
-    obtenerDatosDeBaseDeDatos();
+    obtenerDatos();
+  }, [selectedBank]);
 
-    return () => clearInterval(iv);
-  }, []);
+  const montoTotal   = transacciones.reduce((s, tx) => s + Number(tx.monto || tx.amount || 0), 0);
+  const totalFraudes = transacciones.filter(
+    tx => String(tx.estado || tx.estado_transaccion).toLowerCase() === 'fraude' || String(tx.riesgo || tx.nivel_alerta).toLowerCase() === 'alto'
+  ).length;
+  const totalBloqueadas = transacciones.filter(
+    tx => ['bloqueada', 'rechazada', 'blocked'].includes(String(tx.estado || tx.estado_transaccion).toLowerCase())
+  ).length;
+  const frp = transacciones.length > 0
+    ? ((totalFraudes / transacciones.length) * 100).toFixed(1)
+    : '0.0';
 
-  // ==========================================
-  // 📊 CÁLCULOS EN VIVO DESDE TU POSTGRESQL
-  // ==========================================
-  
-  // 1. Sumamos los montos reales de tus transacciones
-  const montoTotalAcumulado = transacciones.reduce((sum, tx) => sum + Number(tx.monto || 0), 0);
-  
-  // 2. Filtramos cuántas transacciones reales tienen estado de riesgo o fraude
-  const totalFraudes = transacciones.filter(tx => tx.estado?.toLowerCase() === 'fraude' || tx.riesgo?.toLowerCase() === 'alto').length;
-  const totalBloqueadas = transacciones.filter(tx => tx.estado?.toLowerCase() === 'bloqueada' || tx.estado?.toLowerCase() === 'rechazada').length;
-  
-  // 3. Porcentaje de fraude dinámico
-  const frp = transacciones.length > 0 ? ((totalFraudes / transacciones.length) * 100).toFixed(1) : '0.0';
-
-  // 4. Conteo dinámico de alertas por nivel de criticidad para los anillos de abajo
-  const rd = {
-    low: alertasLista.filter(a => a.nivel?.toLowerCase() === 'bajo' || a.criticidad?.toLowerCase() === 'low').length,
-    medium: alertasLista.filter(a => a.nivel?.toLowerCase() === 'medio' || a.criticidad?.toLowerCase() === 'medium').length,
-    high: alertasLista.filter(a => a.nivel?.toLowerCase() === 'alto' || a.criticidad?.toLowerCase() === 'high').length,
-    critical: alertasLista.filter(a => a.nivel?.toLowerCase() === 'critico' || a.criticidad?.toLowerCase() === 'critical').length
+  const clasificarNivel = (a) => {
+    const n = (a.nivel || a.criticidad || a.nivel_alerta || '').toString().toLowerCase().trim();
+    if (n === 'bajo'   || n === 'low')                         return 'low';
+    if (n === 'medio'  || n === 'medium' || n === 'moderate')  return 'medium';
+    if (n === 'alto'   || n === 'high')                        return 'high';
+    return 'critical';
   };
 
-  const fs = { 
-    total: transacciones.length > 0 ? transacciones.length : totalClientes, 
-    fraud: totalFraudes, 
-    blocked: totalBloqueadas, 
-    amount: montoTotalAcumulado 
+  const rd = {
+    low:      alertasLista.filter(a => clasificarNivel(a) === 'low').length,
+    medium:   alertasLista.filter(a => clasificarNivel(a) === 'medium').length,
+    high:     alertasLista.filter(a => clasificarNivel(a) === 'high').length,
+    critical: alertasLista.filter(a => clasificarNivel(a) === 'critical').length,
+  };
+
+  const fs = {
+    total:   transacciones.length > 0 ? transacciones.length : totalClientes,
+    fraud:   totalFraudes,
+    blocked: totalBloqueadas,
+    amount:  montoTotal,
   };
 
   const toggleView = () => setViewMode(m => m === 'globe' ? 'map' : 'globe');
 
   return (
     <div className="dash">
-      <div className="dash-bg" style={{ background: theme === 'dark' ? 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.08), transparent 70%), linear-gradient(180deg, #05050a, #0a0a12)' : 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.06), transparent 70%), linear-gradient(180deg, #f5f5f7, #ffffff)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(99,102,241,0.25)', gap: '16px' }}>
-          {viewMode === 'globe' ? <Globe size={120} color="rgba(99,102,241,0.12)" /> : <Map size={120} color="rgba(99,102,241,0.12)" />}
+      <div
+        className="dash-bg"
+        style={{
+          background: theme === 'dark'
+            ? 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.08), transparent 70%), linear-gradient(180deg, #05050a, #0a0a12)'
+            : 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.06), transparent 70%), linear-gradient(180deg, #f5f5f7, #ffffff)'
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+          {viewMode === 'globe'
+            ? <Globe size={120} color="rgba(99,102,241,0.12)" />
+            : <Map   size={120} color="rgba(99,102,241,0.12)" />
+          }
           <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-tertiary)' }}>
-            {viewMode === 'globe' ? `Vista Globo 3D (${fs.total} nodos cargados)` : `Vista Mapa (${fs.total} puntos asignados)`}
+            {viewMode === 'globe'
+              ? `Vista Globo 3D (${fs.total} nodos cargados)`
+              : `Vista Mapa (${fs.total} puntos asignados)`}
           </p>
         </div>
       </div>
@@ -112,15 +149,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* CONTADORES EN TIEMPO REAL */}
         <div className="float-stats">
           {[
-            { icon: Activity, label: 'Registros Activos', value: fs.total.toLocaleString(), color: '#6366F1' },
-            { icon: DollarSign, label: 'Monto Total', value: fmt(fs.amount), color: '#818CF8' },
-            { icon: AlertTriangle, label: 'Fraude', value: `${fs.fraud} (${frp}%)`, color: '#FF453A' },
-            { icon: Ban, label: 'Bloqueadas', value: fs.blocked.toString(), color: '#FF9F0A' },
-            { icon: Shield, label: 'ML Precisión', value: '98.4%', color: '#30D158' },
-            { icon: Zap, label: 'TXN/seg', value: fs.total > 0 ? '1.2' : '0', color: '#FFD60A' },
+            { icon: Activity,      label: 'Registros Activos', value: fs.total.toLocaleString(),  color: '#6366F1' },
+            { icon: DollarSign,    label: 'Monto Total',       value: fmt(fs.amount),             color: '#818CF8' },
+            { icon: AlertTriangle, label: 'Fraude',            value: `${fs.fraud} (${frp}%)`,    color: '#FF453A' },
+            { icon: Ban,           label: 'Bloqueadas',        value: fs.blocked.toString(),       color: '#FF9F0A' },
+            { icon: Shield,        label: 'ML Precisión',      value: '98.4%',                     color: '#30D158' },
+            { icon: Zap,           label: 'TXN/seg',           value: fs.total > 0 ? '1.2' : '0', color: '#FFD60A' },
           ].map((s, i) => (
             <div key={i} className="glass-stat">
               <div className="gs-icon" style={{ background: `${s.color}18`, color: s.color }}>
@@ -134,7 +170,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* SECCIÓN DE ALERTAS DE LA BD */}
         <div className="float-alerts">
           <div className="fa-header">
             <AlertTriangle size={15} />
@@ -143,18 +178,45 @@ export default function Dashboard() {
           </div>
           <div className="fa-list">
             {alertasLista.length === 0 ? (
-              <div className="fa-empty">Sin alertas activas en base de datos</div>
+              <div className="fa-empty">
+                {loading ? 'Cargando alertas...' : 'Sin alertas activas'}
+              </div>
             ) : (
-              alertasLista.slice(0, 3).map((alerta, index) => (
-                <div key={index} style={{ padding: '8px', borderBottom: '1px solid #222', fontSize: '12px', color: '#fff' }}>
-                  ⚠️ {alerta.descripcion || 'Actividad sospechosa detectada'} - <strong style={{ color: '#FF453A' }}>{alerta.nivel || 'Crítico'}</strong>
-                </div>
-              ))
+              alertasLista.slice(0, 70).map((alerta, index) => {
+                const color       = getRiskColor(alerta.nivel || alerta.criticidad || alerta.nivel_alerta);
+                const nivel       = alerta.nivel || alerta.criticidad || alerta.nivel_alerta || 'Crítico';
+                const descripcion = alerta.descripcion || alerta.mensaje || 'Actividad sospechosa';
+                const id          = alerta.id_alerta ? `#${String(alerta.id_alerta).padStart(4, '0')}` : `#${String(index + 1).padStart(4, '0')}`;
+                const hora   = fmtTime(alerta.fecha || alerta.createdAt || alerta.timestamp);
+                const monto  = alerta.monto ? fmt(Number(alerta.monto)) : null;
+                const origen = alerta.origen || alerta.tipo || alerta.categoria || null;
+
+                return (
+                  <div key={alerta.id_alerta ?? index} className="fa-item">
+                    <div className="fa-dot" style={{ background: color }} />
+                    <div className="fa-body">
+                      <div className="fa-r1">
+                        <span className="fa-id">{id}</span>
+                        <span className="fa-time">{hora}</span>
+                      </div>
+                      <div className="fa-r2">
+                        <span>{descripcion}</span>
+                        {origen && <span>· {origen}</span>}
+                      </div>
+                      <div className="fa-r3">
+                        {monto && <span className="fa-amt">{monto}</span>}
+                        <span className="fa-risk" style={{ color }}>
+                          {nivel.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
 
-        {/* ANILLOS DE RIESGO DINÁMICOS */}
         <div className="float-risk">
           {Object.entries(rd).map(([k, v]) => (
             <div key={k} className="fr-item">
@@ -169,3 +231,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
