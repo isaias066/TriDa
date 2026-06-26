@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme, useBank } from '../store/Context';
+import { useAuth } from '../store/AuthContext';
 import {
   LayoutDashboard, Globe, Activity, Bell, Users, BarChart3,
   Settings, LogOut, Sun, Moon, Building2, ChevronDown,
@@ -17,16 +19,31 @@ const NAV = [
   { id: 'settings',     label: 'Configuración',    icon: Settings },
 ];
 
-const USER = { name: 'Admin Demo', email: 'admin@trida.co', avatar: 'AD', role: 'admin' };
+// Mapea los roles de la BD al label corto que se muestra
+const ROLE_LABEL = {
+  ADMINISTRADOR: 'Admin',
+  ANALISTA:      'Analista',
+  OPERADOR:      'Operador',
+  AUDITOR:       'Auditor',
+};
+
+// Genera iniciales del nombre completo
+const getInitials = (nombre) => {
+  if (!nombre) return '?';
+  return nombre.split(' ').filter(Boolean).slice(0, 2)
+    .map(p => p[0]?.toUpperCase()).join('');
+};
 
 export default function Sidebar({ activeTab, onTabChange, alertCount, collapsed, setCollapsed }) {
   const { theme, toggleTheme }                    = useTheme();
   const { banks, selectedBank, setSelectedBank }  = useBank();
+  const { user, logout: doLogout }                = useAuth();
+  const navigate                                  = useNavigate();
 
-  const [bankOpen, setBankOpen] = useState(false);
-  const [isLive,   setIsLive]   = useState(true);
+  const [bankOpen,  setBankOpen]  = useState(false);
+  const [isLive,    setIsLive]    = useState(true);
   const [totalTxns, setTotalTxns] = useState(0);
-  const [time, setTime]         = useState(new Date());
+  const [time,      setTime]      = useState(new Date());
   const ref = useRef(null);
 
   useEffect(() => {
@@ -56,7 +73,19 @@ export default function Sidebar({ activeTab, onTabChange, alertCount, collapsed,
   const bankList  = [allOption, ...banks];
   const cur       = bankList.find(b => b.id === selectedBank) || allOption;
 
-  const logout = () => console.log('Logout');
+  // Datos del usuario logueado (vienen del AuthContext)
+  const userName    = user?.nombre || 'Usuario';
+  const userEmail   = user?.email  || '';
+  const userRole    = user?.rol    || 'OPERADOR';
+  const userAvatar  = getInitials(userName);
+  const roleLabel   = ROLE_LABEL[userRole] || 'Usuario';
+
+  const handleLogout = () => {
+    if (window.confirm(`¿Cerrar sesión de ${userName}?`)) {
+      doLogout();
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
     <aside className={`sidebar ${collapsed ? 'sb-collapsed' : ''}`}>
@@ -154,14 +183,14 @@ export default function Sidebar({ activeTab, onTabChange, alertCount, collapsed,
         {!collapsed ? (
           <>
             <div className="sb-profile">
-              <div className="sb-avatar">{USER.avatar}</div>
+              <div className="sb-avatar" title={userEmail}>{userAvatar}</div>
               <div className="sb-who">
-                <span className="sb-who-name">{USER.name.split(' ').slice(0, 2).join(' ')}</span>
-                <span className="sb-who-role">
-                  {USER.role === 'admin' ? 'Admin' : USER.role === 'analyst' ? 'Analista' : 'Operador'}
-                </span>
+                <span className="sb-who-name">{userName.split(' ').slice(0, 2).join(' ')}</span>
+                <span className="sb-who-role">{roleLabel}</span>
               </div>
-              <button className="sb-logout-sm" onClick={logout} title="Salir"><LogOut size={14} /></button>
+              <button className="sb-logout-sm" onClick={handleLogout} title="Cerrar sesión">
+                <LogOut size={14} />
+              </button>
             </div>
 
             <div className="sb-pills">
@@ -190,9 +219,11 @@ export default function Sidebar({ activeTab, onTabChange, alertCount, collapsed,
           </>
         ) : (
           <>
-            <div className="sb-avatar-mini" title={`${USER.name} · ${USER.role}`}>{USER.avatar}</div>
+            <div className="sb-avatar-mini" title={`${userName} · ${roleLabel}`}>{userAvatar}</div>
             <span className={`sb-live-mini ${isLive ? 'on' : ''}`}>●</span>
-            <button className="sb-logout-mini" onClick={logout} title="Salir"><LogOut size={14} /></button>
+            <button className="sb-logout-mini" onClick={handleLogout} title="Cerrar sesión">
+              <LogOut size={14} />
+            </button>
           </>
         )}
       </div>

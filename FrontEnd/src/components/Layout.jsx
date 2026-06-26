@@ -11,13 +11,12 @@ import { useBank } from '../store/Context';
 import '../styles/Layout.css';
 
 export default function Layout() {
-  const [tab, setTab]           = useState('dashboard');
-  const [collapsed, setCollapsed] = useState(false);
+  const [tab, setTab]               = useState('dashboard');
+  const [collapsed, setCollapsed]   = useState(false);
   const [alertCount, setAlertCount] = useState(0);
 
   const { selectedBank } = useBank();
 
-  // Recalcular badge de alertas cuando cambia el banco
   useEffect(() => {
     const qs = selectedBank && selectedBank !== 'all'
       ? `?banco=${encodeURIComponent(selectedBank)}`

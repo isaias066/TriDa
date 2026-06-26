@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../store/Context';
+import { useAuth } from '../store/AuthContext';
 import {
   UserPlus, Trash2, ShieldCheck, ShieldAlert, Shield, ShieldOff,
   Save, X, User, Brain, Bell, Lock, Settings as SettingsIcon,
@@ -24,12 +25,12 @@ const PERM_LABELS = {
   manageModel:  'Configurar Modelo IA',
 };
 
-// Roles definidos localmente (no existe endpoint en el backend)
+// Roles del sistema (los que están en la BD)
 const ROLES_LOCAL = [
-  { id: 'superAdmin', label: 'Super Admin', color: '#E040FB', desc: 'Acceso total al sistema' },
-  { id: 'admin',      label: 'Administrador', color: '#6366F1', desc: 'Gestión de usuarios y configuración' },
-  { id: 'analyst',    label: 'Analista',    color: '#06B6D4', desc: 'Visualización y análisis' },
-  { id: 'operator',   label: 'Operador',    color: '#10B981', desc: 'Operaciones básicas' },
+  { id: 'ADMINISTRADOR', label: 'Administrador', color: '#E040FB', desc: 'Acceso total al sistema' },
+  { id: 'ANALISTA',      label: 'Analista',      color: '#06B6D4', desc: 'Visualización y análisis' },
+  { id: 'OPERADOR',      label: 'Operador',      color: '#10B981', desc: 'Operaciones básicas' },
+  { id: 'AUDITOR',       label: 'Auditor',       color: '#F59E0B', desc: 'Solo lectura y auditoría' },
 ];
 
 const TABS = [
@@ -45,27 +46,24 @@ const TABS = [
 
 function RIcon({ role }) {
   const r = ROLES_LOCAL.find(x => x.id === role);
-  if (role === 'superAdmin') return <ShieldCheck size={15} color={r?.color || '#E040FB'} />;
-  if (role === 'admin')      return <ShieldAlert  size={15} color={r?.color || '#6366F1'} />;
-  if (role === 'analyst')    return <Shield       size={15} color={r?.color || '#06B6D4'} />;
-  return                            <ShieldOff    size={15} color={r?.color || '#10B981'} />;
+  if (role === 'ADMINISTRADOR') return <ShieldCheck size={15} color={r?.color || '#E040FB'} />;
+  if (role === 'ANALISTA')      return <Shield       size={15} color={r?.color || '#06B6D4'} />;
+  if (role === 'AUDITOR')       return <ShieldAlert  size={15} color={r?.color || '#F59E0B'} />;
+  return                              <ShieldOff    size={15} color={r?.color || '#10B981'} />;
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Settings() {
-
   const { theme, toggleTheme } = useTheme();
+  const { user, register }     = useAuth();
 
-  // Usuario local (reemplazar con useAuth cuando exista)
-  const user = { name: 'Admin Demo', email: 'admin@trida.co', avatar: 'AD', role: 'superAdmin' };
-
-  // Permisos locales (reemplazar con usePermissions cuando exista)
+  // Permisos locales
   const [permissions, setPermissions] = useState(() => {
     const defaults = {};
     ROLES_LOCAL.forEach(r => {
       defaults[r.id] = Object.fromEntries(
-        Object.keys(PERM_LABELS).map(k => [k, r.id === 'superAdmin'])
+        Object.keys(PERM_LABELS).map(k => [k, r.id === 'ADMINISTRADOR'])
       );
     });
     return defaults;
@@ -97,29 +95,39 @@ export default function Settings() {
 
   // ── Perfil ─────────────────────────────────────────────────────────────────
   const [profile, setProfile] = useState({
-    name:  user?.name  || '',
-    email: user?.email || '',
-    phone: '+57 300 123 4567',
+    name:  user?.nombre || '',
+    email: user?.email  || '',
+    phone: '',
     twoFA: true,
   });
   const [pwModal, setPwModal] = useState(false);
   const [pwData,  setPwData]  = useState({ current: '', new: '', confirm: '' });
 
+  // Actualizar perfil cuando cambie el user del context
+  useEffect(() => {
+    if (user) {
+      setProfile(p => ({ ...p, name: user.nombre || '', email: user.email || '' }));
+    }
+  }, [user]);
+
   // ── Usuarios desde BD ──────────────────────────────────────────────────────
-  const [roleUsers,   setRoleUsers]   = useState([]);
-  const [banks,       setBanks]       = useState([]);
+  const [roleUsers,    setRoleUsers]    = useState([]);
+  const [banks,        setBanks]        = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   // ── Modal nuevo usuario ────────────────────────────────────────────────────
-  const [modal, setModal] = useState(false);
+  const [modal,    setModal]    = useState(false);
+  const [modalErr, setModalErr] = useState('');
+  const [saving,   setSaving]   = useState(false);
   const [nw, setNw] = useState({
-    name: '', email: '', role: 'operator', bank: '', status: 'active',
+    name: '', email: '', password: '', confirmPassword: '',
+    role: 'OPERADOR', bank: '', status: 'active',
   });
 
   // ── Permisos ───────────────────────────────────────────────────────────────
-  const canManageUsers = hasPerm(user?.role, 'manageUsers');
-  const canManageRoles = hasPerm(user?.role, 'manageRoles');
-  const canManageModel = hasPerm(user?.role, 'manageModel');
+  const canManageUsers = user?.rol === 'ADMINISTRADOR';
+  const canManageRoles = user?.rol === 'ADMINISTRADOR';
+  const canManageModel = user?.rol === 'ADMINISTRADOR';
 
   // ── Carga inicial de datos desde la BD ────────────────────────────────────
   useEffect(() => {
@@ -133,21 +141,21 @@ export default function Settings() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res  = await fetch('http://localhost:5000/api/usuarios');
+      const token = localStorage.getItem('trida-token');
+      const res = await fetch('http://localhost:5000/api/auth/usuarios-sistema', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await res.json();
-      // Normalizar campos de la BD al formato que usa el componente
-      const normalized = data.map(u => ({
-        id:            u.id_cliente   ?? u.id,
-        name:          u.nombre_cliente ?? u.nombre ?? u.name,
-        email:         u.correo       ?? u.email,
-        role:          u.rol          ?? u.role ?? 'operator',
-        bank:          u.codigo_banco ?? u.bank ?? '',
-        status:        u.estado       ?? u.status ?? 'active',
-        avatar:        (u.nombre_cliente ?? u.nombre ?? u.name ?? 'U')
-                         .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-        risk:          u.riesgo       ?? u.risk  ?? 0,
-        txns:          u.transacciones ?? u.txns ?? 0,
-        assignedBanks: u.codigo_banco ? [u.codigo_banco] : [],
+      const normalized = (data || []).map(u => ({
+        id:        u.id_usuario,
+        name:      u.nombre_completo,
+        email:     u.email,
+        role:      u.rol,
+        status:    u.estado ? 'active' : 'inactive',
+        avatar:    (u.nombre_completo || 'U')
+                     .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+        createdAt: u.fecha_creacion,
+        lastLogin: u.ultimo_acceso,
       }));
       setRoleUsers(normalized);
     } catch (err) {
@@ -161,15 +169,13 @@ export default function Settings() {
     try {
       const res  = await fetch('http://localhost:5000/api/bancos');
       const data = await res.json();
-      // Normalizar campos de bancos
-      const normalized = data.map(b => ({
-        id:    b.codigo_banco ?? b.id,
-        name:  b.nombre_banco ?? b.name,
-        color: b.color        ?? '#6366F1',
+      const normalized = (data || []).map(b => ({
+        id:    b.codigo ?? b.codigo_banco ?? b.id,
+        name:  b.nombre ?? b.nombre_banco ?? b.name,
+        color: b.color  ?? '#6366F1',
       }));
       setBanks(normalized);
-      // Preseleccionar el primero disponible en el form de nuevo usuario
-      if (normalized.length > 0) {
+      if (normalized.length > 0 && !nw.bank) {
         setNw(p => ({ ...p, bank: normalized[0].id }));
       }
     } catch (err) {
@@ -177,7 +183,7 @@ export default function Settings() {
     }
   };
 
-  // ── CRUD local de usuarios (refleja cambios en UI sin persistir a BD) ──────
+  // ── CRUD local de usuarios ─────────────────────────────────────────────────
   const toggleStatus = id =>
     setRoleUsers(p =>
       p.map(u => u.id === id
@@ -191,29 +197,55 @@ export default function Settings() {
   const changeRole = (id, r) =>
     setRoleUsers(p => p.map(u => u.id === id ? { ...u, role: r } : u));
 
-  const addUser = () => {
-    if (!nw.name || !nw.email) return;
-    const av = nw.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    setRoleUsers(p => [
-      ...p,
-      {
-        ...nw,
-        id:            `u${Date.now()}`,
-        avatar:        av,
-        risk:          0,
-        txns:          0,
-        assignedBanks: nw.bank ? [nw.bank] : [],
-      },
-    ]);
-    setNw({ name: '', email: '', role: 'operator', bank: banks[0]?.id ?? '', status: 'active' });
-    setModal(false);
+  // ── REGISTRO DE USUARIO ─────────────────────────────────────────────────────
+  const addUser = async () => {
+    setModalErr('');
+
+    if (!nw.name || !nw.email || !nw.password) {
+      setModalErr('Nombre, email y contraseña son obligatorios');
+      return;
+    }
+
+    if (nw.password.length < 6) {
+      setModalErr('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    if (nw.password !== nw.confirmPassword) {
+      setModalErr('Las contraseñas no coinciden');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await register({
+        nombre_completo: nw.name,
+        email:           nw.email,
+        password:        nw.password,
+        rol:             nw.role,
+      });
+
+      // Recargar la lista
+      await fetchUsers();
+
+      // Reset del formulario y cierre del modal
+      setNw({
+        name: '', email: '', password: '', confirmPassword: '',
+        role: 'OPERADOR', bank: banks[0]?.id ?? '', status: 'active',
+      });
+      setModal(false);
+    } catch (err) {
+      setModalErr(err.message || 'Error al crear el usuario');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const act = roleUsers.filter(u => u.status === 'active').length;
 
-  // ── Helpers de UI ──────────────────────────────────────────────────────────
-  const getBank  = id  => banks.find(b => b.id === id);
-  const getRole  = id  => ROLES_LOCAL.find(r => r.id === id);
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const getBank = id => banks.find(b => b.id === id);
+  const getRole = id => ROLES_LOCAL.find(r => r.id === id);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -227,7 +259,6 @@ export default function Settings() {
       </div>
 
       <div className="sp-layout">
-
         {/* ── Tab Navigation ───────────────────────────────────────────────── */}
         <div className="sp-tabs">
           {TABS.map(t => {
@@ -255,18 +286,20 @@ export default function Settings() {
               <h3><User size={16} /> Mi Perfil</h3>
               <div className="sprof-card">
                 <div className="sprof-avatar-wrap">
-                  <div className="sprof-avatar">{user?.avatar}</div>
+                  <div className="sprof-avatar">
+                    {(profile.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
                   <button className="sprof-cam" title="Cambiar foto"><Camera size={12} /></button>
                 </div>
                 <div className="sprof-info">
                   <span
                     className="sprof-role-badge"
                     style={{
-                      background: `${getRole(user?.role)?.color || '#6366f1'}18`,
-                      color:       getRole(user?.role)?.color || '#6366f1',
+                      background: `${getRole(user?.rol)?.color || '#6366f1'}18`,
+                      color:       getRole(user?.rol)?.color || '#6366f1',
                     }}
                   >
-                    {getRole(user?.role)?.label || user?.role}
+                    {getRole(user?.rol)?.label || user?.rol}
                   </span>
                 </div>
               </div>
@@ -284,6 +317,7 @@ export default function Settings() {
                 <div className="sfg">
                   <label><Phone size={12} /> Teléfono</label>
                   <input type="tel" value={profile.phone}
+                    placeholder="+57 300 123 4567"
                     onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
                 </div>
                 <div className="sfg-row">
@@ -324,62 +358,56 @@ export default function Settings() {
                     <thead>
                       <tr>
                         <th>Usuario</th><th>Email</th><th>Rol</th>
-                        <th>Banco</th><th>Estado</th><th>Acciones</th>
+                        <th>Último acceso</th><th>Estado</th><th>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {roleUsers.map(u => {
-                        const bank = getBank(u.bank);
-                        return (
-                          <tr key={u.id} className={u.status === 'inactive' ? 'sri' : ''}>
-                            <td>
-                              <div className="st-u">
-                                <span className="st-av" style={{ background: bank?.color || '#6366F1' }}>
-                                  {u.avatar}
-                                </span>
-                                <span>{u.name}</span>
-                              </div>
-                            </td>
-                            <td>{u.email}</td>
-                            <td>
-                              <select
-                                className="srl-sel"
-                                value={u.role}
-                                onChange={e => changeRole(u.id, e.target.value)}
-                                style={{ color: getRole(u.role)?.color }}
-                              >
-                                {ROLES_LOCAL.map(r => (
-                                  <option key={r.id} value={r.id}>{r.label}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td>
-                              <span
-                                className="sbt-sm"
-                                style={{ background: `${bank?.color}20`, color: bank?.color }}
-                              >
-                                {bank?.name || u.bank}
+                      {roleUsers.map(u => (
+                        <tr key={u.id} className={u.status === 'inactive' ? 'sri' : ''}>
+                          <td>
+                            <div className="st-u">
+                              <span className="st-av" style={{ background: getRole(u.role)?.color || '#6366F1' }}>
+                                {u.avatar}
                               </span>
-                            </td>
-                            <td>
-                              <button
-                                className={`sst-tgl ${u.status}`}
-                                onClick={() => toggleStatus(u.id)}
-                              >
-                                {u.status === 'active'
-                                  ? <ToggleRight size={18} />
-                                  : <ToggleLeft  size={18} />}
-                                <span>{u.status === 'active' ? 'Activo' : 'Inactivo'}</span>
-                              </button>
-                            </td>
-                            <td>
-                              <button className="sdel-btn" onClick={() => delUser(u.id)}>
-                                <Trash2 size={13} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                              <span>{u.name}</span>
+                            </div>
+                          </td>
+                          <td>{u.email}</td>
+                          <td>
+                            <select
+                              className="srl-sel"
+                              value={u.role}
+                              onChange={e => changeRole(u.id, e.target.value)}
+                              style={{ color: getRole(u.role)?.color }}
+                            >
+                              {ROLES_LOCAL.map(r => (
+                                <option key={r.id} value={r.id} style={{ color: '#fff', background: '#1c1c1e' }}>
+                                  {r.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                            {u.lastLogin ? new Date(u.lastLogin).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : 'Nunca'}
+                          </td>
+                          <td>
+                            <button
+                              className={`sst-tgl ${u.status}`}
+                              onClick={() => toggleStatus(u.id)}
+                            >
+                              {u.status === 'active'
+                                ? <ToggleRight size={18} color="#34D399" />
+                                : <ToggleLeft  size={18} color="#6B7280" />}
+                              <span>{u.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+                            </button>
+                          </td>
+                          <td>
+                            <button className="sdel-btn" onClick={() => delUser(u.id)} title="Eliminar">
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -550,7 +578,7 @@ export default function Settings() {
                               type="checkbox"
                               checked={permissions[role.id]?.[key] ?? false}
                               onChange={e => updateRolePerm(role.id, key, e.target.checked)}
-                              disabled={role.id === 'superAdmin'}
+                              disabled={role.id === 'ADMINISTRADOR'}
                             />
                             <span className="tgl-s"></span>
                           </label>
@@ -580,41 +608,99 @@ export default function Settings() {
 
       {/* ── Modal: Nuevo Usuario ──────────────────────────────────────────────── */}
       {modal && (
-        <div className="smo" onClick={() => setModal(false)}>
+        <div className="smo" onClick={() => !saving && setModal(false)}>
           <div className="smo-c" onClick={e => e.stopPropagation()}>
             <div className="smo-h">
-              <h3>Nuevo Usuario</h3>
-              <button className="smo-x" onClick={() => setModal(false)}><X size={16} /></button>
+              <h3><UserPlus size={15} /> Nuevo Usuario</h3>
+              <button className="smo-x" onClick={() => !saving && setModal(false)}><X size={16} /></button>
             </div>
             <div className="smo-b">
+              {modalErr && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                  borderRadius: 10,
+                  color: '#EF4444',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}>
+                  ⚠️ {modalErr}
+                </div>
+              )}
+
               <div className="sfg">
                 <label>Nombre Completo</label>
                 <input type="text" placeholder="Ej: Juan Pérez"
-                  value={nw.name} onChange={e => setNw(p => ({ ...p, name: e.target.value }))} />
+                  value={nw.name}
+                  disabled={saving}
+                  onChange={e => setNw(p => ({ ...p, name: e.target.value }))} />
               </div>
+
               <div className="sfg">
                 <label>Email</label>
                 <input type="email" placeholder="usuario@email.com"
-                  value={nw.email} onChange={e => setNw(p => ({ ...p, email: e.target.value }))} />
+                  value={nw.email}
+                  disabled={saving}
+                  onChange={e => setNw(p => ({ ...p, email: e.target.value }))} />
               </div>
+
+              <div className="smo-row">
+                <div className="sfg">
+                  <label>Contraseña</label>
+                  <input type="password" placeholder="Mínimo 6 caracteres"
+                    value={nw.password}
+                    disabled={saving}
+                    onChange={e => setNw(p => ({ ...p, password: e.target.value }))} />
+                </div>
+                <div className="sfg">
+                  <label>Confirmar contraseña</label>
+                  <input type="password" placeholder="Repetir contraseña"
+                    value={nw.confirmPassword}
+                    disabled={saving}
+                    onChange={e => setNw(p => ({ ...p, confirmPassword: e.target.value }))} />
+                </div>
+              </div>
+
               <div className="smo-row">
                 <div className="sfg">
                   <label>Rol</label>
-                  <select value={nw.role} onChange={e => setNw(p => ({ ...p, role: e.target.value }))}>
-                    {ROLES_LOCAL.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                  <select
+                    value={nw.role}
+                    disabled={saving}
+                    onChange={e => setNw(p => ({ ...p, role: e.target.value }))}
+                  >
+                    {ROLES_LOCAL.map(r => (
+                      <option key={r.id} value={r.id} style={{ color: '#fff', background: '#1c1c1e' }}>
+                        {r.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="sfg">
-                  <label>Banco</label>
-                  <select value={nw.bank} onChange={e => setNw(p => ({ ...p, bank: e.target.value }))}>
-                    {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  <label>Banco asignado (opcional)</label>
+                  <select
+                    value={nw.bank}
+                    disabled={saving}
+                    onChange={e => setNw(p => ({ ...p, bank: e.target.value }))}
+                  >
+                    <option value="" style={{ color: '#fff', background: '#1c1c1e' }}>Sin banco asignado</option>
+                    {banks.map(b => (
+                      <option key={b.id} value={b.id} style={{ color: '#fff', background: '#1c1c1e' }}>
+                        {b.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
             </div>
             <div className="smo-f">
-              <button className="sbtn-can" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="sbtn-sav" onClick={addUser}><Save size={13} /> Guardar</button>
+              <button className="sbtn-can" onClick={() => !saving && setModal(false)} disabled={saving}>
+                Cancelar
+              </button>
+              <button className="sbtn-sav" onClick={addUser} disabled={saving}>
+                <Save size={13} /> {saving ? 'Guardando...' : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>
