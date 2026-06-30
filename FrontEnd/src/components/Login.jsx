@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../store/Context';
 import { useAuth } from '../store/AuthContext';
 import { Sun, Moon, Eye, EyeOff } from 'lucide-react';
@@ -54,11 +54,7 @@ export default function Login() {
           </div>
 
           <form onSubmit={submit}>
-            {error && (
-              <div className="login-err">
-                ⚠️ {error}
-              </div>
-            )}
+            {error && <div className="login-err">⚠️ {error}</div>}
 
             <div className="fg">
               <label>Correo electrónico</label>
@@ -101,14 +97,20 @@ export default function Login() {
               {loading ? <span className="spinner"></span> : 'Iniciar Sesión'}
             </button>
 
-            <p style={{
-              textAlign: 'center',
-              fontSize: '12px',
-              color: 'var(--text-tertiary)',
-              marginTop: '16px'
-            }}>
-              ¿Olvidaste tu contraseña? Contacta al administrador.
-            </p>
+            <Link
+              to="/forgot-password"
+              style={{
+                display: 'block',
+                textAlign: 'center',
+                marginTop: '16px',
+                fontSize: '13px',
+                color: 'var(--accent-light)',
+                textDecoration: 'none',
+                fontWeight: 600,
+              }}
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
           </form>
         </div>
       </div>
