@@ -53,8 +53,8 @@ pool.connect((err) => {
 const dispatcher = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: CONFIG.EMAIL.user,
-        pass: CONFIG.EMAIL.pass,
+        user: 'angiecatalinabueno.v.066@gmail.com',
+        pass: 'dywe zbzo mrqh ajal',
     }
 });
 
@@ -283,42 +283,30 @@ app.post('/api/auth/register', verifyToken, requireAdmin, async (req, res) => {
 });
 
 
+
 // ════════════════════════════════════════════════════════════
-//  AUTH - ME (datos del usuario logueado)
+//  AUTH - VERIFICAR SI UN TOKEN DE RESET ES VÁLIDO (sin cambiar nada)
 // ════════════════════════════════════════════════════════════
-app.get('/api/auth/me', verifyToken, async (req, res) => {
+app.get('/api/auth/verify-reset-token', async (req, res) => {
+    const { token } = req.query;
+
+    if (!token) {
+        return res.status(400).json({ valid: false, error: 'Token no proporcionado' });
+    }
+
     try {
-        const result = await pool.query(
-            'SELECT * FROM trida.fn_usuario_actual($1);',
-            [req.user.id_usuario]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
+        const decoded = jwt.verify(token, CONFIG.JWT_SECRET);
+        if (decoded.purpose !== 'reset_password') {
+            return res.status(401).json({ valid: false, error: 'Token inválido' });
         }
-
-        const user = result.rows[0];
-
-        if (!user.estado) {
-            return res.status(403).json({ error: 'Cuenta desactivada' });
+        res.json({ valid: true, email: decoded.email });
+    } catch (err) {
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ valid: false, error: 'El enlace ha expirado' });
         }
-
-        res.json({
-            id:             user.id_usuario,
-            nombre:         user.nombre_completo,
-            email:          user.email,
-            rol:            user.rol,
-            estado:         user.estado,
-            fecha_creacion: user.fecha_creacion,
-            ultimo_acceso:  user.ultimo_acceso,
-        });
-
-    } catch (error) {
-        console.error('Error en /me:', error);
-        res.status(500).json({ error: 'Error interno' });
+        res.status(401).json({ valid: false, error: 'Token inválido' });
     }
 });
-
 
 // ════════════════════════════════════════════════════════════
 //  AUTH - LISTAR USUARIOS DEL SISTEMA (solo admin)
@@ -333,36 +321,129 @@ app.get('/api/auth/usuarios-sistema', verifyToken, requireAdmin, async (req, res
     }
 });
 
-
 // ════════════════════════════════════════════════════════════
-//  AUTH - RECUPERACIÓN DE CONTRASEÑA
+//  AUTH - SOLICITAR RECUPERACIÓN DE CONTRASEÑA
 // ════════════════════════════════════════════════════════════
 app.post('/api/auth/forgot-password', async (req, res) => {
     const { correo } = req.body;
+
+    if (!correo) {
+        return res.status(400).json({ error: 'El correo es obligatorio' });
+    }
+
     try {
+        // 1. Verificar que el email existe en la BD
+        const userResult = await pool.query(
+            'SELECT id_usuario, nombre_completo, email, estado FROM trida.usuarios_sistemas WHERE LOWER(email) = LOWER($1);',
+            [correo.trim()]
+        );
+
+        // ⚠️ Por seguridad, NO revelamos si el email existe o no
+        // Siempre devolvemos "éxito" pero solo enviamos email si es válido
+        if (userResult.rows.length === 0) {
+            console.log(`⚠️ Intento de recuperación para email no registrado: ${correo}`);
+            return res.json({
+                message: 'Si el correo existe, recibirás un enlace de recuperación en breve.'
+            });
+        }
+
+        const user = userResult.rows[0];
+
+        if (!user.estado) {
+            console.log(`⚠️ Intento de recuperación para cuenta desactivada: ${correo}`);
+            return res.json({
+                message: 'Si el correo existe, recibirás un enlace de recuperación en breve.'
+            });
+        }
+
+        // 2. Generar token JWT temporal (15 minutos)
+        const resetToken = jwt.sign(
+            {
+                id_usuario: user.id_usuario,
+                email:      user.email,
+                purpose:    'reset_password',
+            },
+            CONFIG.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        // 3. Construir el link
+        const resetLink = `${CONFIG.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+        // 4. Enviar email
         const opcionesEmail = {
-            from: `"Proyecto Trida" <${CONFIG.EMAIL.user}>`,
-            to: correo,
-            subject: 'Recuperación de Contraseña - Proyecto Trida',
+            from: `"TriDa - Sistema Antifraude" <${CONFIG.EMAIL.user}>`,
+            to: user.email,
+            subject: '🔐 Recuperación de contraseña - TriDa',
             html: `
-                <div style="font-family: sans-serif; padding: 20px; max-width: 600px; border: 1px solid #eee;">
-                    <h2>¿Olvidaste tu contraseña?</h2>
-                    <p>Hola, recibimos una solicitud para restablecer la clave de tu cuenta en Proyecto Trida.</p>
-                    <p>Haz clic en el siguiente enlace para crear una nueva contraseña. Este enlace expira en 15 minutos:</p>
-                    <a href="${CONFIG.FRONTEND_URL}/reset-password?token=TOKEN_SECRETO_TEMPORAL" style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Restablecer Contraseña</a>
-                    <br/><br/>
-                    <small>Si no solicitaste esto, puedes ignorar este correo de forma segura.</small>
+                <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #f5f5f7; padding: 40px 20px;">
+                    <div style="background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                        
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #6366F1; margin: 0; font-size: 28px; font-weight: 800;">TriDa</h1>
+                            <p style="color: #6B7280; margin: 4px 0 0; font-size: 13px;">Monitor de Transacciones con IA</p>
+                        </div>
+
+                        <h2 style="color: #1c1c1e; font-size: 20px; margin: 0 0 12px;">Hola, ${user.nombre_completo} 👋</h2>
+                        <p style="color: #4B5563; line-height: 1.6; margin: 0 0 24px;">
+                            Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>TriDa</strong>.
+                        </p>
+                        <p style="color: #4B5563; line-height: 1.6; margin: 0 0 24px;">
+                            Haz clic en el botón de abajo para crear una nueva contraseña. <strong>Este enlace expirará en 15 minutos.</strong>
+                        </p>
+
+                        <div style="text-align: center; margin: 32px 0;">
+                            <a href="${resetLink}" 
+                               style="background: linear-gradient(135deg, #6366F1, #8B5CF6); 
+                                      color: white; 
+                                      padding: 14px 32px; 
+                                      text-decoration: none; 
+                                      border-radius: 12px; 
+                                      display: inline-block;
+                                      font-weight: 700;
+                                      font-size: 14px;
+                                      box-shadow: 0 4px 14px rgba(99,102,241,0.4);">
+                                🔐 Restablecer Contraseña
+                            </a>
+                        </div>
+
+                        <p style="color: #6B7280; font-size: 12px; line-height: 1.5; margin: 24px 0 0;">
+                            Si el botón no funciona, copia y pega este enlace en tu navegador:<br/>
+                            <a href="${resetLink}" style="color: #6366F1; word-break: break-all;">${resetLink}</a>
+                        </p>
+
+                        <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 32px 0 20px;"/>
+
+                        <p style="color: #9CA3AF; font-size: 11px; line-height: 1.5; margin: 0;">
+                            ⚠️ Si tú NO solicitaste este cambio, puedes ignorar este correo. Tu contraseña permanecerá segura.
+                        </p>
+                        <p style="color: #9CA3AF; font-size: 11px; margin: 8px 0 0;">
+                            Por seguridad, este enlace solo es válido por 15 minutos.
+                        </p>
+                    </div>
+
+                    <p style="text-align: center; color: #9CA3AF; font-size: 11px; margin: 16px 0 0;">
+                        © ${new Date().getFullYear()} TriDa - Sistema Antifraude Bancario
+                    </p>
                 </div>
             `
         };
+
         await dispatcher.sendMail(opcionesEmail);
-        res.json({ message: '¡Correo de recuperación enviado con éxito!' });
+
+        console.log(`✅ Correo de recuperación enviado a: ${user.email}`);
+
+        res.json({
+            message: 'Si el correo existe, recibirás un enlace de recuperación en breve.'
+        });
+
     } catch (error) {
-        console.error("Error enviando el correo:", error);
-        res.status(500).json({ error: 'No se pudo enviar el correo de recuperación' });
+        console.error("❌ Error enviando el correo:", error);
+        res.status(500).json({ error: 'No se pudo procesar la solicitud' });
     }
 });
 
+ 
 
 // ════════════════════════════════════════════════════════════
 //  DASHBOARD
@@ -426,6 +507,68 @@ app.get('/api/analytics/agregaciones', async (req, res) => {
     }
 });
 
+
+// ════════════════════════════════════════════════════════════
+//  AUTH - RESETEAR CONTRASEÑA (con token del email)
+// ════════════════════════════════════════════════════════════
+app.post('/api/auth/reset-password', async (req, res) => {
+    const { token, nuevaContrasena } = req.body;
+
+    if (!token || !nuevaContrasena) {
+        return res.status(400).json({ error: 'Token y nueva contraseña son obligatorios' });
+    }
+
+    if (nuevaContrasena.length < 6) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    try {
+        // 1. Verificar y decodificar el token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, CONFIG.JWT_SECRET);
+        } catch (err) {
+            if (err.name === 'TokenExpiredError') {
+                return res.status(401).json({ error: 'El enlace ha expirado. Solicita uno nuevo.' });
+            }
+            return res.status(401).json({ error: 'Enlace inválido o manipulado' });
+        }
+
+        // 2. Verificar que el token sea para reset
+        if (decoded.purpose !== 'reset_password') {
+            return res.status(401).json({ error: 'Token inválido' });
+        }
+
+        // 3. Hashear nueva contraseña
+        const hash = await bcrypt.hash(nuevaContrasena, 12);
+
+        // 4. Actualizar en BD usando la función
+        const resultado = await pool.query(
+            'SELECT * FROM trida.fn_cambiar_contrasena($1, $2);',
+            [decoded.email, hash]
+        );
+
+        console.log('🔍 Resultado de fn_cambiar_contrasena:', resultado.rows);
+
+        if (resultado.rows.length === 0 || resultado.rows[0].actualizado === false) {
+            return res.status(404).json({ error: 'No se pudo actualizar la contraseña' });
+        }
+
+        console.log(`✅ Contraseña actualizada para: ${decoded.email}`);
+
+        res.json({
+            message: '¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.',
+            email: decoded.email,
+        });
+
+    } catch (error) {
+        console.error("❌ Error al cambiar contraseña:");
+        console.error("   Código:  ", error.code || 'N/A');
+        console.error("   Mensaje: ", error.message);
+        console.error("   Stack:   ", error.stack);
+        res.status(500).json({ error: 'Error interno al actualizar la contraseña' });
+    }
+});
 
 // ════════════════════════════════════════════════════════════
 //  MAPA
