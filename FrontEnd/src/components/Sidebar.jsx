@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme, useBank } from '../store/Context';
+import { useAuth } from '../store/AuthContext';
 import {
   LayoutDashboard, Globe, Activity, Bell, Users, BarChart3,
   Settings, LogOut, Sun, Moon, Building2, ChevronDown,
   PanelLeftClose, PanelLeftOpen, Clock
 } from 'lucide-react';
-import '../styles/Slidebar.css';
+import '../styles/Sidebar.css';
 
 const NAV = [
   { id: 'dashboard',    label: 'Dashboard',       icon: LayoutDashboard },
@@ -17,42 +19,45 @@ const NAV = [
   { id: 'settings',     label: 'Configuración',    icon: Settings },
 ];
 
-const USER = { name: 'Admin Demo', email: 'admin@trida.co', avatar: 'AD', role: 'admin' };
+// Mapea los roles de la BD al label corto que se muestra
+const ROLE_LABEL = {
+  ADMINISTRADOR: 'Admin',
+  ANALISTA:      'Analista',
+  OPERADOR:      'Operador',
+  AUDITOR:       'Auditor',
+};
 
-export default function Slidebar({ activeTab, onTabChange, alertCount = 0, collapsed, setCollapsed, onLogout }) {
-  // 🟢 CONTEXTOS GLOBALES (Con protecciones por si vienen vacíos)
-  const themeContext = useTheme();
-  const theme = themeContext ? themeContext.theme : 'dark';
-  const toggleTheme = themeContext ? themeContext.toggleTheme : () => {};
+// Genera iniciales del nombre completo
+const getInitials = (nombre) => {
+  if (!nombre) return '?';
+  return nombre.split(' ').filter(Boolean).slice(0, 2)
+    .map(p => p[0]?.toUpperCase()).join('');
+};
 
-  const bankContext = useBank();
-  const banks = bankContext ? bankContext.banks : [];
-  const selectedBank = bankContext ? bankContext.selectedBank : 'all';
-  const setSelectedBank = bankContext ? bankContext.setSelectedBank : () => {};
+export default function Sidebar({ activeTab, onTabChange, alertCount, collapsed, setCollapsed }) {
+  const { theme, toggleTheme }                    = useTheme();
+  const { banks, selectedBank, setSelectedBank }  = useBank();
+  const { user, logout: doLogout }                = useAuth();
+  const navigate                                  = useNavigate();
 
-  // 🟢 ESTADOS LOCALES LIMPIOS
-  const [bankOpen, setBankOpen] = useState(false);
-  const [isLive, setIsLive] = useState(true);
+  const [bankOpen,  setBankOpen]  = useState(false);
+  const [isLive,    setIsLive]    = useState(true);
   const [totalTxns, setTotalTxns] = useState(0);
-  const [time, setTime] = useState(new Date());
+  const [time,      setTime]      = useState(new Date());
   const ref = useRef(null);
 
-  // 1. Efecto para el reloj en tiempo real
   useEffect(() => {
     const iv = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(iv);
   }, []);
 
-  // 2. Efecto para cerrar el selector de bancos al hacer clic afuera
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setBankOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setBankOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  // 3. Contador de transacciones desde el Backend
+  // Actualizar contador de TXN cuando cambia el banco
   useEffect(() => {
     const qs = selectedBank && selectedBank !== 'all'
       ? `?banco=${encodeURIComponent(selectedBank)}`
@@ -63,17 +68,31 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
       .catch(err => console.error('Error cargando transacciones:', err));
   }, [selectedBank]);
 
-  // Manejo de la lista de opciones del selector de bancos
+  // Banco actualmente seleccionado (objeto completo)
   const allOption = { id: 'all', name: 'Todos los bancos', color: '#6366F1' };
-  const bankList = [allOption, ...banks];
-  const cur = bankList.find(b => b.id === selectedBank) || allOption;
+  const bankList  = [allOption, ...banks];
+  const cur       = bankList.find(b => b.id === selectedBank) || allOption;
+
+  // Datos del usuario logueado (vienen del AuthContext)
+  const userName    = user?.nombre || 'Usuario';
+  const userEmail   = user?.email  || '';
+  const userRole    = user?.rol    || 'OPERADOR';
+  const userAvatar  = getInitials(userName);
+  const roleLabel   = ROLE_LABEL[userRole] || 'Usuario';
+
+  const handleLogout = () => {
+    if (window.confirm(`¿Cerrar sesión de ${userName}?`)) {
+      doLogout();
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
-    <aside className={`slidebar ${collapsed ? 'sb-collapsed' : ''}`}>
-      
-      {/* SECCIÓN 1: BRAND / LOGO */}
+    <aside className={`sidebar ${collapsed ? 'sb-collapsed' : ''}`}>
+
+      {/* Brand */}
       <div className="sb-brand">
-        {!collapsed ? (
+        {!collapsed && (
           <>
             <img src="/logo.png" alt="TriDa" className="sb-logo" />
             <div className="sb-brand-text">
@@ -81,9 +100,8 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
               <span className="sb-tag">Fraud Detection AI</span>
             </div>
           </>
-        ) : (
-          <img src="/logo.png" alt="TriDa" className="sb-logo-sm" />
         )}
+        {collapsed && <img src="/logo.png" alt="TriDa" className="sb-logo-sm" />}
         <button
           className="sb-toggle"
           onClick={() => setCollapsed(!collapsed)}
@@ -93,10 +111,13 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
         </button>
       </div>
 
-      {/* SECCIÓN 2: SELECTOR DE BANCO */}
-      {!collapsed ? (
+      {/* Bank selector – expanded */}
+      {!collapsed && (
         <div className="sb-bank" ref={ref}>
-          <button className={`bank-btn ${bankOpen ? 'open' : ''}`} onClick={() => setBankOpen(!bankOpen)}>
+          <button
+            className={`bank-btn ${bankOpen ? 'open' : ''}`}
+            onClick={() => setBankOpen(!bankOpen)}
+          >
             <Building2 size={14} strokeWidth={1.5} />
             <span className="bk-dot" style={{ background: cur.color }}></span>
             <span className="bank-btn-name">{cur.name}</span>
@@ -119,17 +140,24 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
             </div>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* Bank selector – collapsed (dot only) */}
+      {collapsed && (
         <div className="sb-bank-mini">
-          <div className="sb-bank-mini-dot" style={{ background: cur.color }} title={cur.name}></div>
+          <div
+            className="sb-bank-mini-dot"
+            style={{ background: cur.color }}
+            title={cur.name}
+          ></div>
         </div>
       )}
 
-      {/* SECCIÓN 3: MENÚ DE NAVEGACIÓN */}
+      {/* Navigation */}
       <nav className="sb-nav">
         {NAV.map(n => {
           const Icon = n.icon;
-          const act = activeTab === n.id;
+          const act  = activeTab === n.id;
           return (
             <button
               key={n.id}
@@ -139,7 +167,6 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
             >
               <Icon size={18} strokeWidth={act ? 2 : 1.5} />
               {!collapsed && <span>{n.label}</span>}
-              
               {n.id === 'alerts' && alertCount > 0 && (
                 <span className={`nav-badge ${collapsed ? 'nav-badge-sm' : ''}`}>
                   {collapsed ? (alertCount > 9 ? '9+' : alertCount) : (alertCount > 99 ? '99+' : alertCount)}
@@ -151,20 +178,17 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
         })}
       </nav>
 
-      {/* SECCIÓN 4: PANEL INFERIOR (PERFIL, HORA Y TEMAS) */}
+      {/* Bottom */}
       <div className="sb-bottom">
         {!collapsed ? (
           <>
             <div className="sb-profile">
-              <div className="sb-avatar">{USER.avatar}</div>
+              <div className="sb-avatar" title={userEmail}>{userAvatar}</div>
               <div className="sb-who">
-                <span className="sb-who-name">{USER.name.split(' ').slice(0, 2).join(' ')}</span>
-                <span className="sb-who-role">
-                  {USER.role === 'admin' ? 'Admin' : USER.role === 'analyst' ? 'Analista' : 'Operador'}
-                </span>
+                <span className="sb-who-name">{userName.split(' ').slice(0, 2).join(' ')}</span>
+                <span className="sb-who-role">{roleLabel}</span>
               </div>
-              {/* Al hacer clic aquí, se ejecuta la acción de salir limpia */}
-              <button className="sb-logout-sm" onClick={onLogout} title="Salir">
+              <button className="sb-logout-sm" onClick={handleLogout} title="Cerrar sesión">
                 <LogOut size={14} />
               </button>
             </div>
@@ -174,7 +198,10 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
                 <Clock size={10} />
                 <span>{time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
               </div>
-              <button className={`sb-pill sb-pill-live ${isLive ? 'on' : ''}`} onClick={() => setIsLive(!isLive)}>
+              <button
+                className={`sb-pill sb-pill-live ${isLive ? 'on' : ''}`}
+                onClick={() => setIsLive(!isLive)}
+              >
                 <span className="sb-live-dot-sm"></span>
                 <span>{isLive ? 'LIVE' : 'OFF'}</span>
               </button>
@@ -192,9 +219,9 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
           </>
         ) : (
           <>
-            <div className="sb-avatar-mini" title={`${USER.name} · ${USER.role}`}>{USER.avatar}</div>
+            <div className="sb-avatar-mini" title={`${userName} · ${roleLabel}`}>{userAvatar}</div>
             <span className={`sb-live-mini ${isLive ? 'on' : ''}`}>●</span>
-            <button className="sb-logout-mini" onClick={onLogout} title="Salir">
+            <button className="sb-logout-mini" onClick={handleLogout} title="Cerrar sesión">
               <LogOut size={14} />
             </button>
           </>
@@ -203,3 +230,5 @@ export default function Slidebar({ activeTab, onTabChange, alertCount = 0, colla
     </aside>
   );
 }
+
+

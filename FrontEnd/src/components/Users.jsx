@@ -28,17 +28,17 @@ function normalizeClientes(clientes) {
     const name = c.nombre_completo || `Cliente ${index + 1}`;
     const risk = Number(c.riesgo ?? Math.floor(Math.random() * 100));
     return {
-      id:        c.id_cliente,
+      id:             c.id_cliente,
       name,
-      email:     c.email || 'sin-correo@dominio.com',
-      status:    (c.estado === true || String(c.estado_alerta).toLowerCase() === 'activa' || c.estado === 'ACTIVA') ? 'active' : 'inactive',
+      email:          c.email || 'sin-correo@dominio.com',
+      status:         c.estado === true ? 'active' : 'inactive',
       risk,
-      lvl:       riskLevel(risk),
-      lastLogin: c.fecha_registro || new Date().toISOString(),
-      city:      c.ciudad || 'N/D',
-      country:   c.pais   || 'N/D',
-      phone:     c.telefono || 'N/D',
-      avatar:    initials(name),
+      lvl:            riskLevel(risk),
+      lastLogin:      c.fecha_registro || new Date().toISOString(),
+      city:           c.ciudad || 'N/D',
+      country:        c.pais   || 'N/D',
+      phone:          c.telefono || 'N/D',
+      avatar:         initials(name),
       bank: {
         id:    c.banco_codigo || 'sin_asignar',
         name:  c.banco        || 'Sin banco',
@@ -50,13 +50,13 @@ function normalizeClientes(clientes) {
 
 function normalizeDispositivos(disp) {
   return disp.map((d, index) => ({
-    id:        d.id_dispositivo ?? `dev-${index + 1}`,
-    clienteId: d.id_cliente,
-    clienteNm: d.cliente || 'Sin cliente',
-    type:      d.tipo_dispositivo || 'Desktop',
-    os:        d.sistema_operativo || 'N/D',
-    browser:   d.navegador || 'N/D',
-    lastUse:   d.fecha_ultimo_uso,
+    id:         d.id_dispositivo ?? `dev-${index + 1}`,
+    clienteId:  d.id_cliente,
+    clienteNm:  d.cliente || 'Sin cliente',
+    type:       d.tipo_dispositivo || 'Desktop',
+    os:         d.sistema_operativo || 'N/D',
+    browser:    d.navegador || 'N/D',
+    lastUse:    d.fecha_ultimo_uso,
     bank: {
       id:    d.banco_codigo || 'sin_asignar',
       name:  d.banco        || 'Sin banco',
@@ -87,6 +87,7 @@ export default function Users() {
     }).finally(() => setLoading(false));
   }, [selectedBank]);
 
+  // Reset de paginación al cambiar de banco, vista o filtro
   useEffect(() => {
     setPage(1);
     setExpanded(null);
@@ -95,14 +96,17 @@ export default function Users() {
   const allUsers   = useMemo(() => normalizeClientes(clientes), [clientes]);
   const allDevices = useMemo(() => normalizeDispositivos(dispositivos), [dispositivos]);
 
+  // Total activos/inactivos (sobre el total, no la página)
   const activeUsers   = allUsers.filter(u => u.status === 'active').length;
   const inactiveUsers = allUsers.length - activeUsers;
 
+  // Filtra activos/inactivos según el toggle
   const filteredUsers = useMemo(
     () => showInactive ? allUsers : allUsers.filter(u => u.status === 'active'),
     [allUsers, showInactive]
   );
 
+  // Agrupa dispositivos por cliente (para mostrar dentro de la card del usuario)
   const devicesByClient = useMemo(() => {
     const map = new Map();
     allDevices.forEach(d => {
@@ -112,7 +116,8 @@ export default function Users() {
     return map;
   }, [allDevices]);
 
-  const list       = view === 'users' ? filteredUsers : allDevices;
+  // Paginación
+  const list      = view === 'users' ? filteredUsers : allDevices;
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   const pageSafe   = Math.min(page, totalPages);
   const start      = (pageSafe - 1) * PAGE_SIZE;
@@ -138,6 +143,7 @@ export default function Users() {
         </div>
       </div>
 
+      {/* Barra de control: toggle inactivos + info de página */}
       {!loading && (
         <div className="up-toolbar">
           {view === 'users' && (
@@ -186,6 +192,7 @@ export default function Users() {
                 ))}
               </div>
 
+              {/* Paginación */}
               <div className="up-pagi">
                 <button onClick={goPrev} disabled={pageSafe === 1}>← Anterior</button>
                 <span>Página {pageSafe} de {totalPages}</span>
@@ -265,6 +272,7 @@ export default function Users() {
             })}
           </div>
 
+          {/* Paginación */}
           <div className="up-pagi">
             <button onClick={goPrev} disabled={pageSafe === 1}>← Anterior</button>
             <span>Página {pageSafe} de {totalPages}</span>
@@ -275,3 +283,4 @@ export default function Users() {
     </div>
   );
 }
+

@@ -1,13 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 
-// ============ THEME ============
 const ThemeCtx = createContext();
 
 export function ThemeProvider({ children }) {
-  // 🟢 SIEMPRE INICIA EN DARK
-  const [theme, setTheme] = useState('dark');
-
-  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('trida-theme') || 'dark'; } catch { return 'dark'; }
+  });
 
   useEffect(() => {
     try { localStorage.setItem('trida-theme', theme); } catch {}
@@ -15,23 +13,18 @@ export function ThemeProvider({ children }) {
   }, [theme]);
 
   return (
-    <ThemeCtx.Provider value={{ theme, toggleTheme }}>
+    <ThemeCtx.Provider value={{ theme, toggleTheme: () => setTheme(t => t === 'dark' ? 'light' : 'dark') }}>
       {children}
     </ThemeCtx.Provider>
   );
 }
 
-export const useTheme = () => {
-  const ctx = useContext(ThemeCtx);
-  if (!ctx) return { theme: 'dark', toggleTheme: () => {} };
-  return ctx;
-};
+export const useTheme = () => useContext(ThemeCtx);
 
-// ============ BANK ============
 const BankCtx = createContext();
 
 export function BankProvider({ children }) {
-  const [banks, setBanks] = useState([]);
+  const [banks, setBanks]               = useState([]);
   const [selectedBank, setSelectedBank] = useState('all');
   const [loadingBanks, setLoadingBanks] = useState(true);
 
@@ -46,7 +39,7 @@ export function BankProvider({ children }) {
         }));
         setBanks(normalized);
       })
-      .catch(err => console.error('Error cargando bancos:', err))
+      .catch(err => console.error('Error cargando bancos en contexto:', err))
       .finally(() => setLoadingBanks(false));
   }, []);
 
@@ -57,8 +50,5 @@ export function BankProvider({ children }) {
   );
 }
 
-export const useBank = () => {
-  const ctx = useContext(BankCtx);
-  if (!ctx) return { banks: [], selectedBank: 'all', setSelectedBank: () => {}, loadingBanks: false };
-  return ctx;
-};
+export const useBank = () => useContext(BankCtx);
+

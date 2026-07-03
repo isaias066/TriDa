@@ -1,4 +1,4 @@
-.slidebar {
+.sidebar {
   width: 240px;
   min-width: 240px;
   height: 100vh;
@@ -15,7 +15,7 @@
   transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
               min-width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.slidebar::after {
+.sidebar::after {
   content: '';
   position: absolute;
   top: 0;
@@ -25,7 +25,7 @@
   background: linear-gradient(180deg, rgba(99,102,241,0.08), transparent 30%, transparent 70%, rgba(99,102,241,0.05));
 }
 
-.slidebar.sb-collapsed {
+.sidebar.sb-collapsed {
   width: 62px;
   min-width: 62px;
 }
@@ -395,7 +395,7 @@
   background: rgba(255,255,255,0.2);
   border-right-color: rgba(0,0,0,0.04);
 }
-[data-theme="light"] .slidebar::after {
+[data-theme="light"] .sidebar::after {
   background: linear-gradient(180deg, rgba(99,102,241,0.06), transparent 30%, transparent 70%, rgba(99,102,241,0.04));
 }
 [data-theme="light"] .sb-name { color: rgba(0,0,0,0.8); }
@@ -425,3 +425,4 @@
 [data-theme="light"] .sb-bottom { border-top-color: rgba(0,0,0,0.04); }
 [data-theme="light"] .sb-logout-mini { border-color: rgba(255,69,58,0.08); color: rgba(255,69,58,0.25); }
 [data-theme="light"] .nav-badge { background: rgba(255,69,58,0.1); }
+

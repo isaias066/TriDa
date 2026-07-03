@@ -979,3 +979,40 @@
     flex-shrink: 0;
   }
 }
+
+/* ============================================
+   ARREGLOS: opciones de select + estado inactivo
+   ============================================ */
+
+/* Forzar texto blanco en options de selects (modo oscuro) */
+.sfg select option,
+.srl-sel option {
+  background: #1c1c1e !important;
+  color: #f5f5f7 !important;
+  padding: 8px;
+}
+
+/* Toggle de estado: arreglo del inactivo */
+.sst-tgl {
+  color: var(--text-secondary);
+}
+
+.sst-tgl.inactive {
+  color: var(--text-tertiary);
+  background: rgba(107, 114, 128, 0.1);
+  border-color: rgba(107, 114, 128, 0.3);
+}
+
+.sst-tgl.inactive:hover {
+  background: rgba(107, 114, 128, 0.15);
+}
+
+.sst-tgl.active {
+  color: #34D399;
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.sst-tgl.active:hover {
+  background: rgba(52, 211, 153, 0.15);
+}

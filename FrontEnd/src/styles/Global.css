@@ -85,3 +85,4 @@ html, body {
 .tgl-s::before { content: ''; position: absolute; height: 16px; width: 16px; left: 2px; bottom: 2px; background: var(--text-tertiary); border-radius: 50%; transition: all 0.2s; }
 .tgl input:checked + .tgl-s { background: rgba(99,102,241,0.2); border-color: #6366f1; }
 .tgl input:checked + .tgl-s::before { transform: translateX(18px); background: #6366f1; }
+

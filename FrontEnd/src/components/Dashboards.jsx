@@ -31,7 +31,7 @@ const fmtTime = (fecha) => {
     : d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 };
 
-export default function Dashboards() {
+export default function Dashboard() {
   const { theme }                              = useTheme();
   const { selectedBank }                       = useBank();
   const [time, setTime]                        = useState(new Date());
@@ -69,19 +69,19 @@ export default function Dashboards() {
     obtenerDatos();
   }, [selectedBank]);
 
-  const montoTotal   = transacciones.reduce((s, tx) => s + Number(tx.monto || tx.amount || 0), 0);
+  const montoTotal   = transacciones.reduce((s, tx) => s + Number(tx.monto || 0), 0);
   const totalFraudes = transacciones.filter(
-    tx => String(tx.estado || tx.estado_transaccion).toLowerCase() === 'fraude' || String(tx.riesgo || tx.nivel_alerta).toLowerCase() === 'alto'
+    tx => tx.estado?.toLowerCase() === 'fraude' || tx.riesgo?.toLowerCase() === 'alto'
   ).length;
   const totalBloqueadas = transacciones.filter(
-    tx => ['bloqueada', 'rechazada', 'blocked'].includes(String(tx.estado || tx.estado_transaccion).toLowerCase())
+    tx => tx.estado?.toLowerCase() === 'bloqueada' || tx.estado?.toLowerCase() === 'rechazada'
   ).length;
   const frp = transacciones.length > 0
     ? ((totalFraudes / transacciones.length) * 100).toFixed(1)
     : '0.0';
 
   const clasificarNivel = (a) => {
-    const n = (a.nivel || a.criticidad || a.nivel_alerta || '').toString().toLowerCase().trim();
+    const n = (a.nivel || a.criticidad || '').toString().toLowerCase().trim();
     if (n === 'bajo'   || n === 'low')                         return 'low';
     if (n === 'medio'  || n === 'medium' || n === 'moderate')  return 'medium';
     if (n === 'alto'   || n === 'high')                        return 'high';
@@ -128,6 +128,8 @@ export default function Dashboards() {
       </div>
 
       <div className="dash-overlay">
+
+        {/* Top bar */}
         <div className="float-top">
           <div className="float-brand">
             <img src="/logo.png" alt="TriDa" className="float-logo" />
@@ -149,6 +151,7 @@ export default function Dashboards() {
           </div>
         </div>
 
+        {/* Stats */}
         <div className="float-stats">
           {[
             { icon: Activity,      label: 'Registros Activos', value: fs.total.toLocaleString(),  color: '#6366F1' },
@@ -170,6 +173,7 @@ export default function Dashboards() {
           ))}
         </div>
 
+        {/* Alerts panel */}
         <div className="float-alerts">
           <div className="fa-header">
             <AlertTriangle size={15} />
@@ -183,16 +187,18 @@ export default function Dashboards() {
               </div>
             ) : (
               alertasLista.slice(0, 70).map((alerta, index) => {
-                const color       = getRiskColor(alerta.nivel || alerta.criticidad || alerta.nivel_alerta);
-                const nivel       = alerta.nivel || alerta.criticidad || alerta.nivel_alerta || 'Crítico';
-                const descripcion = alerta.descripcion || alerta.mensaje || 'Actividad sospechosa';
-                const id          = alerta.id_alerta ? `#${String(alerta.id_alerta).padStart(4, '0')}` : `#${String(index + 1).padStart(4, '0')}`;
+                const color       = getRiskColor(alerta.nivel || alerta.criticidad);
+                const nivel       = alerta.nivel || alerta.criticidad || 'Crítico';
+                const descripcion = alerta.descripcion || alerta.mensaje || 'Actividad sospechosa detectada';
+                const id          = alerta.id
+                  ? `#${String(alerta.id).padStart(4, '0')}`
+                  : `#${String(index + 1).padStart(4, '0')}`;
                 const hora   = fmtTime(alerta.fecha || alerta.createdAt || alerta.timestamp);
                 const monto  = alerta.monto ? fmt(Number(alerta.monto)) : null;
                 const origen = alerta.origen || alerta.tipo || alerta.categoria || null;
 
                 return (
-                  <div key={alerta.id_alerta ?? index} className="fa-item">
+                  <div key={alerta.id ?? index} className="fa-item">
                     <div className="fa-dot" style={{ background: color }} />
                     <div className="fa-body">
                       <div className="fa-r1">
@@ -217,6 +223,7 @@ export default function Dashboards() {
           </div>
         </div>
 
+        {/* Risk rings */}
         <div className="float-risk">
           {Object.entries(rd).map(([k, v]) => (
             <div key={k} className="fr-item">
@@ -227,8 +234,8 @@ export default function Dashboards() {
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );
 }
-

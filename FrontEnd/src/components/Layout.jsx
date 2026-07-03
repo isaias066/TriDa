@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Slidebar from './Slidebar'; // ¡Asegurado el nombre real!
+import Sidebar from './Sidebar';
 import Dashboards from './Dashboards';
 import TransactionMap from './TransactionMap';
 import Transactions from './Transactions';
@@ -10,9 +10,9 @@ import Settings from './Settings';
 import { useBank } from '../store/Context';
 import '../styles/Layout.css';
 
-export default function Layout({ onLogout }) {
-  const [tab, setTab]           = useState('dashboard');
-  const [collapsed, setCollapsed] = useState(false);
+export default function Layout() {
+  const [tab, setTab]               = useState('dashboard');
+  const [collapsed, setCollapsed]   = useState(false);
   const [alertCount, setAlertCount] = useState(0);
 
   const { selectedBank } = useBank();
@@ -26,8 +26,7 @@ export default function Layout({ onLogout }) {
       .then(data => {
         const count = (data || []).filter(
           t => t.alertLevel === 'critical' || t.alertLevel === 'high' ||
-               t.nivel_alerta === 'critical' || t.nivel_alerta === 'high' ||
-               Number(t.score_riesgo) >= 60
+               t.nivel_alerta === 'critical' || t.nivel_alerta === 'high'
         ).length;
         setAlertCount(count);
       })
@@ -47,16 +46,15 @@ export default function Layout({ onLogout }) {
   const Page = pages[tab] || Dashboards;
 
   return (
-    <div className="app-layout" style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0b0b0f' }}>
-      <Slidebar
+    <div className="app-layout">
+      <Sidebar
         activeTab={tab}
         onTabChange={setTab}
         alertCount={alertCount}
         collapsed={collapsed}
         setCollapsed={setCollapsed}
-        onLogout={onLogout}
       />
-      <main className={`main-content ${collapsed ? 'mc-collapsed' : ''}`} style={{ flex: 1, padding: '20px', color: '#fff', overflowY: 'auto' }}>
+      <main className={`main-content ${collapsed ? 'mc-collapsed' : ''}`}>
         <Page />
       </main>
     </div>

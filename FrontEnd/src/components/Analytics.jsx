@@ -41,18 +41,18 @@ export default function Analytics() {
   }, [selectedBank]);
 
   const filtered = useMemo(() => {
-    return selectedBank === 'all' ? transactions : transactions.filter(t => (t.bank?.id === selectedBank || t.codigo_banco === selectedBank));
+    return selectedBank === 'all' ? transactions : transactions.filter(t => t.bank?.id === selectedBank);
   }, [transactions, selectedBank]);
 
   const an = useMemo(() => {
     const byType = {}, byCity = {}, byChannel = {}, byBank = {};
     let totalFraud = 0;
     filtered.forEach(t => {
-      const tipo = t.type || t.tipo_transaccion || t.tipo || 'General';
+      const tipo = t.type || t.tipo || 'General';
       if (!byType[tipo]) byType[tipo] = { count: 0, amount: 0, fraud: 0 };
       byType[tipo].count++;
       byType[tipo].amount += Number(t.amount || t.monto || 0);
-      if (t.isFraud || t.es_fraude || t.fraude || String(t.estado_transaccion).toLowerCase() === 'fraude') { byType[tipo].fraud++; totalFraud++; }
+      if (t.isFraud || t.es_fraude || t.fraude) { byType[tipo].fraud++; totalFraud++; }
 
       const city = t.location?.city || t.ciudad || 'Desconocido';
       byCity[city] = (byCity[city] || 0) + 1;
@@ -61,9 +61,9 @@ export default function Analytics() {
       byChannel[ch] = (byChannel[ch] || 0) + 1;
 
       const bankName = t.bank?.name || t.banco || 'Banco';
-      if (!byBank[bankName]) byBank[bankName] = { count: 0, fraud: 0, color: t.bank?.color || t.banco_color || '#6366f1' };
+      if (!byBank[bankName]) byBank[bankName] = { count: 0, fraud: 0, color: t.bank?.color || '#6366f1' };
       byBank[bankName].count++;
-      if (t.isFraud || t.es_fraude || t.fraude || String(t.estado_transaccion).toLowerCase() === 'fraude') byBank[bankName].fraud++;
+      if (t.isFraud || t.es_fraude || t.fraude) byBank[bankName].fraud++;
     });
     const avg = filtered.length > 0 ? Math.round(filtered.reduce((s, t) => s + Number(t.amount || t.monto || 0), 0) / filtered.length) : 0;
     const fp = filtered.length > 0 ? ((totalFraud / filtered.length) * 100).toFixed(1) : 0;
@@ -146,123 +146,117 @@ export default function Analytics() {
       </div>
 
       <div className="an-scroll">
-        {loading ? (
-          <div className="up-state" style={{ padding: '40px', color: 'var(--text-secondary)' }}>Cargando datos analíticos...</div>
-        ) : (
-          <>
-            <div className="an-m">
-              <div className="mc">
-                <div className="mr">
-                  <svg viewBox="0 0 36 36">
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--bg-primary)" strokeWidth="3" />
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#34D399" strokeWidth="3" strokeDasharray={`${detNum}, 100`} strokeLinecap="round" />
-                    <text x="18" y="20.35" textAnchor="middle" fill="var(--text-primary)" fontSize="8" fontWeight="700">{detStr}</text>
-                  </svg>
-                </div>
-                <div className="mi"><span className="mv">{detStr}</span><span className="ml">Tasa de Detección</span></div>
-              </div>
-
-              <div className="mc">
-                <div className="mr">
-                  <svg viewBox="0 0 36 36">
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--bg-primary)" strokeWidth="3" />
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#FBBF24" strokeWidth="3" strokeDasharray={`${fpNum}, 100`} strokeLinecap="round" />
-                    <text x="18" y="20.35" textAnchor="middle" fill="var(--text-primary)" fontSize="8" fontWeight="700">{fpStr}</text>
-                  </svg>
-                </div>
-                <div className="mi"><span className="mv">{fpStr}</span><span className="ml">Falsos Positivos</span></div>
-              </div>
-
-              <div className="mc">
-                <div className="mi"><span className="mv">{fmtCOP(avgAmount)}</span><span className="ml">Monto Promedio</span></div>
-              </div>
-
-              <div className="mc">
-                <div className="mi"><span className="mv">{totalCount.toLocaleString()}</span><span className="ml">Total Analizadas</span></div>
-              </div>
+        <div className="an-m">
+          <div className="mc">
+            <div className="mr">
+              <svg viewBox="0 0 36 36">
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--bg-primary)" strokeWidth="3" />
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#34D399" strokeWidth="3" strokeDasharray={`${detNum}, 100`} strokeLinecap="round" />
+                <text x="18" y="20.35" textAnchor="middle" fill="var(--text-primary)" fontSize="8" fontWeight="700">{detStr}</text>
+              </svg>
             </div>
+            <div className="mi"><span className="mv">{detStr}</span><span className="ml">Tasa de Detección</span></div>
+          </div>
 
-            <div className="an-g">
-              <div className="ac">
-                <h3>Transacciones por Tipo</h3>
-                {stList.length === 0 ? (
-                  <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
-                ) : (
-                  <div className="ab">
-                    {stList.map(([t, d]) => (
-                      <div key={t} className="abr">
-                        <span className="bln">{t}</span>
-                        <div className="rbt">
-                          <div className="rbf" style={{ width: `${(d.count / mxT) * 100}%` }}></div>
-                        </div>
-                        <span className="blc">{d.count}</span>
-                        <span className="ab-f" style={{ color: d.fraud > 0 ? '#EF4444' : '#34D399' }}>{d.fraud}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="ac">
-                <h3>Top Ciudades</h3>
-                {scList.length === 0 ? (
-                  <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
-                ) : (
-                  <div className="ab">
-                    {scList.map(([c, cnt]) => (
-                      <div key={c} className="abr">
-                        <span className="bln">{c}</span>
-                        <div className="rbt">
-                          <div className="rbf rf-alt" style={{ width: `${(cnt / mxC) * 100}%` }}></div>
-                        </div>
-                        <span className="blc">{cnt}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="ac">
-                <h3>Canal</h3>
-                {chList.length === 0 ? (
-                  <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
-                ) : (
-                  <div className="ab">
-                    {chList.map(([ch, cnt]) => (
-                      <div key={ch} className="abr">
-                        <span className="bln">{chIcons[ch?.toLowerCase()] || chIcons[ch] || '📊'} {ch}</span>
-                        <div className="rbt">
-                          <div className="rbf rf-ch" style={{ width: `${(cnt / mxCn) * 100}%` }}></div>
-                        </div>
-                        <span className="blc">{cnt}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="ac">
-                <h3>Fraude por Banco</h3>
-                {sbList.length === 0 ? (
-                  <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
-                ) : (
-                  <div className="ab">
-                    {sbList.map(([b, d]) => (
-                      <div key={b} className="abr">
-                        <span className="bln">{b}</span>
-                        <div className="rbt">
-                          <div className="rbf" style={{ width: `${(d.count / mxB) * 100}%`, background: d.color }}></div>
-                        </div>
-                        <span className="blc">{d.count}</span>
-                        <span className="ab-f" style={{ color: d.fraud > 0 ? '#EF4444' : '#34D399' }}>{d.fraud}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="mc">
+            <div className="mr">
+              <svg viewBox="0 0 36 36">
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--bg-primary)" strokeWidth="3" />
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#FBBF24" strokeWidth="3" strokeDasharray={`${fpNum}, 100`} strokeLinecap="round" />
+                <text x="18" y="20.35" textAnchor="middle" fill="var(--text-primary)" fontSize="8" fontWeight="700">{fpStr}</text>
+              </svg>
             </div>
-          </>
-        )}
+            <div className="mi"><span className="mv">{fpStr}</span><span className="ml">Falsos Positivos</span></div>
+          </div>
+
+          <div className="mc">
+            <div className="mi"><span className="mv">{fmtCOP(avgAmount)}</span><span className="ml">Monto Promedio</span></div>
+          </div>
+
+          <div className="mc">
+            <div className="mi"><span className="mv">{totalCount.toLocaleString()}</span><span className="ml">Total Analizadas</span></div>
+          </div>
+        </div>
+
+        <div className="an-g">
+          <div className="ac">
+            <h3>Transacciones por Tipo</h3>
+            {stList.length === 0 ? (
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
+            ) : (
+              <div className="ab">
+                {stList.map(([t, d]) => (
+                  <div key={t} className="abr">
+                    <span className="bln">{t}</span>
+                    <div className="rbt">
+                      <div className="rbf" style={{ width: `${(d.count / mxT) * 100}%` }}></div>
+                    </div>
+                    <span className="blc">{d.count}</span>
+                    <span className="ab-f" style={{ color: d.fraud > 0 ? '#EF4444' : '#34D399' }}>{d.fraud}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="ac">
+            <h3>Top Ciudades</h3>
+            {scList.length === 0 ? (
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
+            ) : (
+              <div className="ab">
+                {scList.map(([c, cnt]) => (
+                  <div key={c} className="abr">
+                    <span className="bln">{c}</span>
+                    <div className="rbt">
+                      <div className="rbf rf-alt" style={{ width: `${(cnt / mxC) * 100}%` }}></div>
+                    </div>
+                    <span className="blc">{cnt}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="ac">
+            <h3>Canal</h3>
+            {chList.length === 0 ? (
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
+            ) : (
+              <div className="ab">
+                {chList.map(([ch, cnt]) => (
+                  <div key={ch} className="abr">
+                    <span className="bln">{chIcons[ch?.toLowerCase()] || chIcons[ch] || '📊'} {ch}</span>
+                    <div className="rbt">
+                      <div className="rbf rf-ch" style={{ width: `${(cnt / mxCn) * 100}%` }}></div>
+                    </div>
+                    <span className="blc">{cnt}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="ac">
+            <h3>Fraude por Banco</h3>
+            {sbList.length === 0 ? (
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '20px' }}>Sin datos</p>
+            ) : (
+              <div className="ab">
+                {sbList.map(([b, d]) => (
+                  <div key={b} className="abr">
+                    <span className="bln">{b}</span>
+                    <div className="rbt">
+                      <div className="rbf" style={{ width: `${(d.count / mxB) * 100}%`, background: d.color }}></div>
+                    </div>
+                    <span className="blc">{d.count}</span>
+                    <span className="ab-f" style={{ color: d.fraud > 0 ? '#EF4444' : '#34D399' }}>{d.fraud}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

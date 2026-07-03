@@ -27,3 +27,4 @@ export const DEVICES = [];
 export const CITIES = [];
 export const TXN_TYPES = [];
 export const TRANSACTIONS = [];
+

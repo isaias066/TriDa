@@ -88,3 +88,4 @@ export async function solicitarRecuperacionPassword(correo) {
   if (!res.ok) throw new Error('Error al solicitar la recuperación de contraseña');
   return res.json();
 }
+
