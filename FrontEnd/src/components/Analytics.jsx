@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useBank } from '../store/Context';
+import { useBank } from '../store/context';
 import '../styles/Analytics.css';
 
 const fmtCOP = n => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);

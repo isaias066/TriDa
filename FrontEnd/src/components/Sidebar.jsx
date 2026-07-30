@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme, useBank } from '../store/Context';
-import { useAuth } from '../store/AuthContext';
+import { useTheme, useBank } from '../store/context';
+import { useAuth } from '../store/authcontext';
 import {
   LayoutDashboard, Globe, Activity, Bell, Users, BarChart3,
   Settings, LogOut, Sun, Moon, Building2, ChevronDown,
