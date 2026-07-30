@@ -1,9 +1,11 @@
 # Restricciones del Proyecto — TriDa
 ## Sistema de Monitoreo de Transacciones con IA para Detección de Fraude
 
-<!-¿Qué? Restricciones globales que gobiernan el desarrollo, arquitectura y operación de TriDa.
+<!--
+  ¿Qué? Restricciones globales que gobiernan el desarrollo, arquitectura y operación de TriDa.
   ¿Para qué? Definir límites claros de tecnología, seguridad, cumplimiento normativo y diseño que no son negociables.
-  ¿Impacto? Toda decisión técnica, de arquitectura o de seguridad debe verificarse contra estas restricciones antes de implementarse. ->
+  ¿Impacto? Toda decisión técnica, de arquitectura o de seguridad debe verificarse contra estas restricciones antes de implementarse.
+-->
 
 ---
 
@@ -47,7 +49,7 @@ El stack tecnológico está definido y **no puede modificarse** sin aprobación 
 - Las respuestas del API (en `error.message`, alertas) deben estar en español para analistas colombianos.
 - Los reportes exportables (PDF, Excel, CSV) **deben generar contenido en español**.
 
-### RT-004 — Modelo de IA
+### RT-004 — Modelo de Machine Learning
 
 - **Versión del modelo** debe estar documentada explícitamente en cada deployment.
 - Cada reentrenamiento genera una nueva versión con timestamp: `model_v1_20250101_143022.pkl`.
@@ -302,6 +304,250 @@ Formato obligatorio en todos los commits:
 
 ```text
 <type>(<scope>): <subject>
+
+## 6. Restricciones Organizacionales
+
+### RO-001 — Propósito Educativo y Documentación
+
+- **Cabecera obligatoria** en cada archivo nuevo:
+
+```typescript
+// ¿Qué? [Descripción breve de la responsabilidad del módulo]
+// ¿Para qué? [Caso de uso o beneficio que proporciona]
+// ¿Impacto? [Cómo afecta a otros sistemas o a la detección de fraude]
+```
+
+- Comentarios pedagógicos en lógica compleja:
+
+```typescript
+// ¿Qué? Calcular el riesgo geográfico comparando transacción actual con ubicación habitual del cliente
+// ¿Para qué? Detectar transacciones en países/ciudades donde el cliente no acostumbra operar
+// ¿Impacto? Reduce falsos positivos (clientes viajando) mientras mantiene detección de fraudes coordinados internacionales
+
+const distanceKm = haversine(currentLat, currentLng, usualLat, usualLng);
+
+if (distanceKm > MAX_DISTANCE_SAME_DAY) {
+  riskScore += GEOGRAPHIC_ANOMALY_WEIGHT;
+}
+```
+
+### RO-002 — Calidad Mínima No Negociable
+
+- **Cobertura de tests**: mínimo **85%** en módulos de lógica de negocio (IA, ingesta, motor de reglas).
+- `vitest` + `@vitest/coverage-v8` para TypeScript (Express y React).
+
+- **Linting**: sin errores de ESLint/Prettier antes de hacer commit.
+- Backend y Frontend: `eslint`, `prettier`.
+
+- **Type checking**: TypeScript estricto (`tsc --noEmit`).
+- Cada feature debe incluir tests **antes** de considerarse completa.
+
+### RO-003 — Code Review
+
+- **Todo código** requiere al menos 1 aprobación antes de merge a `dev`.
+- Merge a `main` requiere 2 aprobaciones + todos los tests pasando.
+- Revisor debe verificar:
+  - Cumplimiento de restricciones (seguridad, formato, normalización).
+  - Tests adecuados.
+  - Documentación actualizada.
+  - Impacto en auditoría/cumplimiento normativo.
+
+### RO-004 — Variables de Entorno
+
+- `.env` **jamás** debe versionarse (incluido en `.gitignore`).
+- `.env.example` **SIEMPRE** debe estar actualizado con todas las variables requeridas.
+- Documentar en `README.md` cada variable y su propósito.
+- Validación de secrets al iniciar la aplicación (con esquemas de `Zod`).
+
+---
+
+## 7. Restricciones Operacionales
+
+### RO-001 — Deployment y Releases
+
+- **Ambiente de desarrollo**: `localhost` con Docker Compose.
+- **Ambiente de staging**: réplica idéntica a producción, datos anonimizados.
+- **Ambiente de producción**: mínimo 3 instancias con Load Balancer.
+- **Release cadence**: mínimo 1 semana entre releases a producción.
+- **Rollback plan**: cada release debe poder revertirse en máximo 30 minutos.
+
+### RO-002 — Versionado de Modelos ML
+
+- Cada versión del modelo se etiqueta con timestamp y métricas de rendimiento:
+
+```text
+model_v1_20250101_143022_acc_0.92_prec_0.88_recall_0.95.pkl
+```
+
+- Guardar metadatos del modelo:
+  - Fecha de entrenamiento.
+  - Dataset usado (tamaño, distribución de fraudes).
+  - Métricas (accuracy, precision, recall, F1, AUC-ROC).
+  - Versión de librerías (TensorFlow, Scikit-learn).
+
+- Permitir rollback a versión anterior del modelo en caso de degradación.
+- Monitorear performance en producción vs. validación.
+
+### RO-003 — Mantenimiento Programado
+
+- **Ventanas de mantenimiento**: viernes 22:00–06:00 (mínima actividad transaccional).
+- Notificar a analistas y administrativos 48 horas antes.
+- No hacer cambios en core banking, solo en TriDa.
+- Replicación de BD se pausa durante mantenimiento (backups antes del inicio).
+
+### RO-004 — Respaldo y Recuperación
+
+- **Backup automático**: cada 6 horas a S3/almacenamiento externo.
+- **Retención**:
+  - 30 días de backups diarios.
+  - 12 meses de backups mensuales.
+- **Test de recuperación**: mensual, verificar integridad de datos.
+- **Cifrado de backups**: AES-256 con claves gestionadas en KMS.
+
+---
+
+## 8. Restricciones Específicas del Dominio Financiero
+
+### DF-001 — Precisión de Números Monetarios
+
+- **Siempre** usar `Decimal` (`decimal.js` o tipo `Decimal` de Prisma) para montos.
+- **Jamás** usar `number` o `float` nativo de JavaScript para dinero.
+- Redondeo: **HALF_UP** (0.5 hacia arriba) para USD/COP.
+- Precisión:
+  - USD: 2 decimales.
+  - COP: 0 decimales (no hay centavos).
+
+### DF-002 — Información Sensible (PII)
+
+- **Nunca** loguear números de cédula, tarjeta de crédito o PIN completos.
+- Mascarar en logs/alertas:
+  - `CC: ***7823`
+  - `Tarjeta: ****3456`
+- **Prohibido** exponer en respuestas API información personal innecesaria.
+- La auditoría debe registrar **qué** fue accedido, pero **no mostrar** el dato sensible.
+
+### DF-003 — Cumplimiento SLA con Core Banking
+
+- El sistema TriDa no puede ser más lento que la transacción en el core banking.
+- Latencia máxima: **500 ms**.
+- En caso de timeout: fallar abierto (permitir la transacción) con log de riesgo no evaluado.
+- Notificar al equipo técnico si la latencia supera los **400 ms**.
+
+---
+
+## 9. Restricciones de Testing
+
+### RT-001 — Cobertura de Tests
+
+Mínimos requeridos:
+
+- **Lógica de IA/ML**: 85%+ de cobertura.
+- **Motor de reglas**: 90%+ de cobertura (crítico).
+- **API Endpoints**: 80%+ de cobertura.
+- **Dashboard (Frontend)**: 70%+ de cobertura (componentes principales).
+
+Tipos de tests:
+
+- **Unitarios**: 60% del esfuerzo.
+- **Integración**: 30% del esfuerzo.
+- **E2E**: 10% del esfuerzo (flujos críticos).
+
+### RT-002 — Test de Seguridad
+
+- **OWASP ZAP**: escaneo automático antes de cada release.
+- **SQL Injection**: fuzzing de consultas.
+- **XSS**: inyección de payloads maliciosos en inputs.
+- **CSRF**: verificación de tokens en formularios.
+- **Rate Limiting**: prueba de estrés (10.000 requests/segundo).
+
+### RT-003 — Test de Carga
+
+- Load test mensual simulando **1.000 transacciones/segundo** concurrentes.
+- Verificar latencia **p95 < 500 ms** bajo carga pico.
+- Identificar cuellos de botella (CPU, I/O de BD, caché).
+- Generar informe de capacidad para planificación.
+
+---
+
+## 10. Restricciones de Cumplimiento Normativo (Checklist)
+
+Antes de cada deploy a producción, verificar:
+
+### PCI-DSS 4.0
+
+- [ ] Cifrado AES-256 de datos sensibles (PAN, CVV).
+- [ ] Validación de certificados SSL/TLS.
+- [ ] Políticas de contraseña (mínimo 8 caracteres y complejidad).
+- [ ] Auditoría de acceso a datos sensibles.
+- [ ] Segmentación de red (BD aislada).
+
+### ISO 27001:2022
+
+- [ ] Política de seguridad de la información documentada.
+- [ ] Roles y responsabilidades de seguridad definidos.
+- [ ] Plan de continuidad del negocio.
+- [ ] Control de acceso basado en roles.
+- [ ] Cifrado de datos en tránsito y en reposo.
+
+### Ley 1581 de 2012 (Protección de Datos - Colombia)
+
+- [ ] Política de tratamiento de datos personales accesible.
+- [ ] Consentimiento explícito del cliente para procesar datos.
+- [ ] Derechos ARCO implementados (Acceso, Rectificación, Cancelación y Oposición).
+- [ ] Cláusula de confidencialidad en contratos de proveedores.
+- [ ] Reporte de brechas de seguridad en máximo 5 días.
+
+### OWASP Top 10
+
+- [ ] Validación de inputs contra inyección.
+- [ ] Autenticación multifactor.
+- [ ] Gestión segura de sesiones.
+- [ ] Sanitización de outputs contra XSS.
+- [ ] CORS configurado correctamente.
+
+---
+
+## Violaciones Críticas = Bloqueo Inmediato
+
+Las siguientes violaciones impiden cualquier deploy:
+
+- ❌ Hardcodear credenciales o secrets en código.
+- ❌ Comunicación sin TLS 1.3.
+- ❌ Usar consultas sin sanitizar o SQL raw sin validación.
+- ❌ Almacenar contraseñas en texto plano.
+- ❌ Exponer `hashed_password` en respuestas API.
+- ❌ No validar inputs con Zod.
+- ❌ Rate limiting deshabilitado en producción.
+- ❌ Logs sin información de auditoría.
+- ❌ Tests con cobertura inferior al 70%.
+- ❌ Deploy a `main` sin aprobación de Code Review.
+
+---
+
+## Matriz de Responsabilidades
+
+| Restricción | Verifica | Autoriza | Cumple |
+|-------------|----------|----------|---------|
+| **Seguridad** | Security Officer | CTO | Backend / DevOps |
+| **Arquitectura** | Tech Lead | CTO | Backend |
+| **Cumplimiento normativo** | Legal / Compliance | Director | Todos |
+| **Calidad de código** | Code Review | Tech Lead | Desarrollador |
+| **Performance** | DevOps | Tech Lead | Backend |
+| **ML / Modelos** | Data Scientist | CTO | ML Engineer |
+| **Frontend** | QA | Product Owner | Frontend |
+| **Operaciones** | DevOps | CTO | SRE |
+
+---
+
+**Última actualización:** 30/07/2026
+
+**Revisión:** 0.6
+
+**Autora:** Angie Bueno
+
+**Estado:** En vigencia
+
+**Próxima revisión:** 31/07/2026
 
 For: <usuario/stakeholder>
 
