@@ -549,6 +549,5 @@ Las siguientes violaciones impiden cualquier deploy:
 
 **Próxima revisión:** 31/07/2026
 
-For: <usuario/stakeholder>
 
 Impact: <impacto técnico y de negocio>
