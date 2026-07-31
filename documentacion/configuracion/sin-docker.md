@@ -1,10 +1,10 @@
-## 🚀 Guía de Despliegue Local (Sin Docker)
+##  Guía de Despliegue Local (Sin Docker)
 
 Esta guía explica cómo configurar y ejecutar **TriDa** de forma local, instalando manualmente todas las dependencias necesarias en el sistema operativo.
 
 ---
 
-## 📋 Requisitos Previos
+##  Requisitos Previos
 
 Antes de comenzar, verifica que tienes instalado:
 
@@ -25,7 +25,7 @@ git --version
 
 ---
 
-## 🗄️ 1. Configurar PostgreSQL
+##  1. Configurar PostgreSQL
 
 1. Abre **pgAdmin 4** o la terminal de PostgreSQL (`psql`).
 2. Crea una nueva base de datos:
@@ -38,7 +38,7 @@ CREATE DATABASE trida_db;
 
 ---
 
-## ⚙️ 2. Configurar el Backend
+##  2. Configurar el Backend
 
 Abre una terminal y ubícate en la carpeta del backend:
 
@@ -82,7 +82,7 @@ http://localhost:3000
 
 ---
 
-## 💻 3. Configurar el Frontend
+##  3. Configurar el Frontend
 
 Abre una nueva terminal.
 
@@ -112,7 +112,7 @@ http://localhost:5173
 
 ---
 
-## 🌐 Puertos Utilizados
+##  Puertos Utilizados
 
 | Servicio | Puerto | URL |
 |----------|:------:|-----|
@@ -133,7 +133,7 @@ Si todo está configurado correctamente:
 
 ---
 
-## 🛠️ Solución de Problemas
+##  Solución de Problemas
 
 ### Error: `pnpm: command not found`
 
