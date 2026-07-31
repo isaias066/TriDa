@@ -1,72 +1,164 @@
+## 🚀 Guía de Despliegue Local (Sin Docker)
 
-```
-## Guía de Despliegue Local (Sin Docker)
+Esta guía explica cómo configurar y ejecutar **TriDa** de forma local, instalando manualmente todas las dependencias necesarias en el sistema operativo.
 
-Esta guía explica cómo configurar y ejecutar el proyecto manualmente de forma local instalando cada entorno de ejecución directamente en el sistema operativo.
+---
 
-## Requisitos Previos
+## 📋 Requisitos Previos
 
-Debes contar con las siguientes herramientas instaladas localmente:
-- **Node.js** (Versión 18 o superior)
-- **PostgreSQL** y **pgAdmin 4**
+Antes de comenzar, verifica que tienes instalado:
+
+- **Node.js** 22 LTS o superior
+- **pnpm**
+- **PostgreSQL 17**
+- **pgAdmin 4** (opcional, recomendado)
 - **Git**
 
+Puedes verificar las versiones con:
+
+```bash
+node -v
+pnpm -v
+psql --version
+git --version
+```
+
 ---
 
-## Pasos para Ejecutar el Proyecto
+## 🗄️ 1. Configurar PostgreSQL
 
-### 1. Configurar la Base de Datos PostgreSQL
-1. Abre **pgAdmin** o la terminal de PostgreSQL (`psql`).
-2. Crea una nueva base de datos llamada `trida_db` (o el nombre configurado en el proyecto).
-3. Asegúrate de recordar el usuario (`postgres`) y la contraseña configurada.
+1. Abre **pgAdmin 4** o la terminal de PostgreSQL (`psql`).
+2. Crea una nueva base de datos:
+
+```sql
+CREATE DATABASE trida_db;
+```
+
+3. Verifica el usuario y contraseña de PostgreSQL (por defecto suele ser `postgres`).
 
 ---
 
-### 2. Configurar y Levantar el BackEnd (Express)
+## ⚙️ 2. Configurar el Backend
 
-1. Abre una terminal y navega hasta la carpeta del backend:
-   ```bash
-   cd BackEnd
-Instala las dependencias necesarias:
+Abre una terminal y ubícate en la carpeta del backend:
 
-Bash
-npm install
-Crea un archivo .env en la carpeta BackEnd/ con la siguiente estructura:
+```bash
+cd backend
+```
 
-Fragmento de código
+### Instalar dependencias
+
+```bash
+pnpm install
+```
+
+### Configurar variables de entorno
+
+Crea un archivo `.env` con el siguiente contenido:
+
+```env
 PORT=3000
+
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=tu_contraseña
 DB_NAME=trida_db
-Inicia el servidor backend:
 
-Bash
-npm start
-# O si usas nodemon: npm run dev
-3. Configurar y Levantar el FrontEnd (React)
-Abre una nueva terminal y navega hasta la carpeta del frontend:
+JWT_SECRET=tu_clave_secreta
+```
 
-Bash
-cd FrontEnd
-Instala las dependencias:
+### Ejecutar el servidor
 
-Bash
-npm install
-Inicia el servidor de desarrollo de React:
+```bash
+pnpm dev
+```
 
-Bash
-npm run dev
-Puertos y Accesos
-FrontEnd: http://localhost:5173
+La API estará disponible en:
 
-BackEnd: http://localhost:3000
-
+```text
+http://localhost:3000
+```
 
 ---
 
+## 💻 3. Configurar el Frontend
+
+Abre una nueva terminal.
+
+Ubícate en la carpeta del frontend:
+
+```bash
+cd frontend
 ```
 
+### Instalar dependencias
 
-¡Con esto tus archivos `.md` quedarán súper organizados y profesionales para que el docente o tu equ
+```bash
+pnpm install
+```
+
+### Ejecutar el proyecto
+
+```bash
+pnpm dev
+```
+
+La aplicación estará disponible en:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## 🌐 Puertos Utilizados
+
+| Servicio | Puerto | URL |
+|----------|:------:|-----|
+| Backend (Express) | **3000** | http://localhost:3000 |
+| Frontend (React + Vite) | **5173** | http://localhost:5173 |
+| PostgreSQL | **5432** | localhost:5432 |
+
+---
+
+## ✅ Verificación
+
+Si todo está configurado correctamente:
+
+- ✅ PostgreSQL se encuentra en ejecución.
+- ✅ El backend inicia sin errores.
+- ✅ El frontend carga correctamente en el navegador.
+- ✅ El frontend puede consumir la API del backend.
+
+---
+
+## 🛠️ Solución de Problemas
+
+### Error: `pnpm: command not found`
+
+Instala **pnpm**:
+
+```bash
+npm install -g pnpm
+```
+
+---
+
+### Error de conexión a PostgreSQL
+
+Verifica que:
+
+- PostgreSQL esté en ejecución.
+- La base de datos `trida_db` exista.
+- Las credenciales del archivo `.env` sean correctas.
+
+---
+
+### El puerto ya está en uso
+
+Verifica qué proceso está utilizando el puerto correspondiente o cambia el valor de `PORT` en el archivo `.env`.
+
+---
+
+> **Nota:** Esta guía corresponde a la ejecución local de **TriDa** sin contenedores. Para un entorno reproducible y más cercano a producción, consulta la guía de despliegue con **Docker Compose**.
