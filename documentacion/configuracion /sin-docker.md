@@ -1,10 +1,10 @@
 
-```markdown
-# 💻 Guía de Despliegue Local (Sin Docker)
+```
+## Guía de Despliegue Local (Sin Docker)
 
 Esta guía explica cómo configurar y ejecutar el proyecto manualmente de forma local instalando cada entorno de ejecución directamente en el sistema operativo.
 
-## 📋 Requisitos Previos
+## Requisitos Previos
 
 Debes contar con las siguientes herramientas instaladas localmente:
 - **Node.js** (Versión 18 o superior)
@@ -65,5 +65,8 @@ BackEnd: http://localhost:3000
 
 
 ---
+
+```
+
 
 ¡Con esto tus archivos `.md` quedarán súper organizados y profesionales para que el docente o tu equ
