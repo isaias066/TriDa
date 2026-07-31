@@ -1,0 +1,12 @@
+# Dependencias de Node (ignora node_modules en la raíz y subcarpetas)
+node_modules/
+**/node_modules/
+
+# Archivos de entorno y credenciales
+.env
+**/.env
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+.vscode/

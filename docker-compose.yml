@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Base de Datos PostgreSQL
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: trida_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tu_contraseña_aqui
+      POSTGRES_DB: trida_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Servicio de BackEnd (Express)
+  backend:
+    build: ./BackEnd
+    container_name: trida_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=postgres-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=tu_contraseña_aqui
+      - DB_NAME=trida_db
+    depends_on:
+      - postgres-db
+
+  # Servicio de FrontEnd (React)
+  frontend:
+    build: ./FrontEnd
+    container_name: trida_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
