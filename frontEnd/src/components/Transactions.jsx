@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useBank } from '../store/Context';
+import { useBank } from '../store/context';
 import { Search, ArrowUp, ArrowDown, ArrowUpDown, X, Download, FileText, FileSpreadsheet, Eye } from 'lucide-react';
 import '../styles/Transactions.css';
 

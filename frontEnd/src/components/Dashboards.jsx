@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useTheme, useBank } from '../store/Context';
+import { useTheme, useBank } from '../store/context';
 import { getClientes, getTransacciones, getAlertas } from '../services/conexion';
 import { ALERT_LEVELS } from '../data/mockData';
 import {

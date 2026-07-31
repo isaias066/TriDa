@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { useTheme } from '../store/Context';
+import { useTheme } from '../store/context';
 import { Sun, Moon, Eye, EyeOff, CheckCircle, AlertTriangle, KeyRound } from 'lucide-react';
 import '../styles/Login.css';
 

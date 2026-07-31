@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useTheme } from '../store/Context';
-import { useAuth } from '../store/AuthContext';
+import { useTheme } from '../store/context';
+import { useAuth } from '../store/authcontext';
 import {
   UserPlus, Trash2, ShieldCheck, ShieldAlert, Shield, ShieldOff,
   Save, X, User, Brain, Bell, Lock, Settings as SettingsIcon,

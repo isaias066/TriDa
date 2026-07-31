@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
+import Sidebar from './sidebar';
 import Dashboards from './Dashboards';
-import TransactionMap from './TransactionMap';
-import Transactions from './Transactions';
+import TransactionMap from './transactionmap';
+import Transactions from './transactions';
 import Alerts from './Alerts';
-import Users from './Users';
+import Users from './users';
 import Analytics from './Analytics';
-import Settings from './Settings';
-import { useBank } from '../store/Context';
+import Settings from './settings';
+import { useBank } from '../store/context';
 import '../styles/Layout.css';
 
 export default function Layout() {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useBank } from '../store/Context';
+import { useBank } from '../store/context';
 import { getDispositivos, getUsuarios } from '../services/conexion';
 import '../styles/Users.css';
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useTheme, useBank } from '../store/Context';
+import { useTheme, useBank } from '../store/context';
 import '../styles/TransactionMap.css';
 
 delete L.Icon.Default.prototype._getIconUrl;

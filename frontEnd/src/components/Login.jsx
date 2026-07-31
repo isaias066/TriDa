@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useTheme } from '../store/Context';
-import { useAuth } from '../store/AuthContext';
+import { useTheme } from '../store/context';
+import { useAuth } from '../store/authcontext';
 import { Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import '../styles/Login.css';
 
