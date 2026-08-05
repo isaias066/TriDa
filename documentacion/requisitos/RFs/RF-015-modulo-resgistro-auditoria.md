@@ -51,4 +51,4 @@ Financiera de Colombia.
 | RN-088 | Cada registro debe incluir una firma criptográfica de integridad que garantice que no fue alterado. |
 | RN-089 | Ningún usuario, incluido el administrador, puede modificar ni eliminar registros de auditoría. |
 | RN-090 | Los intentos de modificación o eliminación deben registrarse como eventos de seguridad. |
-| RN-091 | Los registros deben conservarse por un mínimo de 5 años según normativa financiera colombiana. |
+| RN-091 | Los registros deben conservarse por un mínimo de 5 años según normativa financiera colombiana.
