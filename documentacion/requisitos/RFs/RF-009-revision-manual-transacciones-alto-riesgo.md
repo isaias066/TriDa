@@ -1,24 +1,49 @@
-<!--
-  ¿Qué? Requisito funcional que describe el desbloqueo manual de 
-  transacciones bloqueadas por parte de un analista autorizado.
-  ¿Para qué? Definir cómo un analista puede revertir un bloqueo 
-  automático cuando determina que se trata de un falso positivo, 
-  documentando su decisión con trazabilidad completa.
-  ¿Impacto? Sin desbloqueo manual los falsos positivos afectan 
-  permanentemente a clientes legítimos, degradando la experiencia 
-  de usuario y generando desconfianza en el banco.
--->
-
-# RF-009 — Desbloqueo Manual de Transacciones por Analista Autorizado
-
-**Historias de usuario relacionadas:** HU-AN-05
+# RF-009 — Revisión Manual de Transacciones de Alto Riesgo
 
 ## Descripción
 
-El sistema permitirá que un analista de seguridad autorizado pueda 
-desbloquear manualmente una transacción previamente bloqueada de forma 
-automática, cuando determine que se trata de un falso positivo. El 
-proceso de desbloqueo requerirá que el analista justifique la decisión 
+El sistema permitirá que un analista autorizado revise aquellas
+transacciones que hayan sido marcadas con riesgo crítico por TriDa.
+
+Durante la revisión, el analista podrá validar o descartar la
+recomendación emitida por el sistema, registrando obligatoriamente la
+justificación de su decisión.
+
+Las decisiones tomadas quedarán disponibles para auditoría y podrán
+utilizarse posteriormente como información de apoyo durante el
+reentrenamiento del modelo de Inteligencia Artificial.
+
+---
+
+## Flujo
+
+1. El analista accede al caso.
+
+2. Revisa la información.
+
+3. Consulta el score y explicación.
+
+4. Registra su decisión.
+
+5. El sistema almacena la justificación.
+
+6. La decisión queda disponible para auditoría.
+
+7. El caso podrá utilizarse posteriormente para el proceso de entrenamiento.
+
+---
+
+## Reglas
+
+RN-052 Solo usuarios autorizados podrán revisar casos.
+
+RN-053 Toda decisión deberá incluir una justificación.
+
+RN-054 La revisión deberá quedar registrada.
+
+RN-055 El historial será trazable.
+
+RN-056 Los casos validados podrán incorporarse posteriormente al conjunto de entrenamiento, el proceso de desbloqueo requerirá que el analista justifique la decisión 
 con un comentario obligatorio. El desbloqueo quedará registrado en 
 el módulo de auditoría y esta acción activará el reentrenamiento 
 del modelo con el caso validado.
