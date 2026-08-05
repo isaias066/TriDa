@@ -35,7 +35,7 @@ que documente el razonamiento.
 | 3 | El analista selecciona la clasificación correspondiente. |
 | 4 | El analista ingresa un comentario justificando su decisión. |
 | 5 | El sistema registra la clasificación con los datos del analista (RF-014). |
-| 6 | Si la clasificación es «Fraude Confirmado» o «Falso Positivo», el caso se incorpora al conjunto de datos para reentrenamiento (RF-020). |
+| 6 | Si la clasificación es «Fraude Confirmado» o «Falso Positivo», el caso queda registrado como dato validado para futuros procesos de entrenamiento del modelo de Inteligencia Artificial (RF-020).
 | 7 | El estado de la alerta se actualiza en el dashboard en tiempo real. |
 
 ---
@@ -47,5 +47,6 @@ que documente el razonamiento.
 | RN-075 | Solo analistas de seguridad autorizados pueden clasificar alertas. |
 | RN-076 | Los estados de clasificación son: «Fraude Confirmado», «Falso Positivo», «Pendiente de Investigación» y «Requiere Contacto con Cliente». |
 | RN-077 | Cada clasificación requiere un comentario que documente el razonamiento del analista. |
-| RN-078 | Las clasificaciones «Fraude Confirmado» y «Falso Positivo» se incorporan automáticamente al conjunto de reentrenamiento del modelo. |
+| RN-078 | Los casos clasificados como «Fraude Confirmado» y «Falso Positivo» quedarán registrados como datos validados para futuros procesos de entrenamiento del modelo.
+as clasificaciones «Fraude Confirmado» y «Falso Positivo» se incorporan automáticamente al conjunto de reentrenamiento del modelo. |
 | RN-079 | El estado de la alerta debe actualizarse en tiempo real en el dashboard tras la clasificación. |
