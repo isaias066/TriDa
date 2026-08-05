@@ -16,7 +16,7 @@
 ## Descripción
 
 El sistema proporcionará una interfaz web intuitiva, responsiva y 
-compatible con navegadores modernos (Chrome, Firefox, Edge, Safari). 
+compatible con navegadores soportados por la entidad. 
 El dashboard mostrará en tiempo real: el flujo de transacciones 
 procesadas, alertas activas organizadas por nivel de criticidad con 
 código de color (verde para bajo, amarillo para medio, rojo para alto), 
@@ -50,4 +50,3 @@ de acción.
 | RN-060 | Las métricas clave deben incluir: total de transacciones procesadas, alertas por nivel y tasa de detección. |
 | RN-061 | El usuario debe poder acceder al detalle de cualquier alerta con un solo clic. |
 | RN-062 | La interfaz debe ser usable sin entrenamiento prolongado, priorizando claridad y velocidad de acción. |
-| RN-063 | El frontend se implementa con React + Vite + Tailwind CSS. |
