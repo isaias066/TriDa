@@ -20,8 +20,7 @@ alertas y transacciones específicas. Los filtros disponibles serán:
 rango de fechas, cliente (nombre o identificación), rango de monto, 
 nivel de score de riesgo, tipo de transacción, canal bancario (app, 
 cajero, web, punto de venta), estado de la alerta (pendiente, validada, 
-bloqueada, falso positivo) y analista que gestionó el caso. Los 
-resultados se mostrarán en tiempo real a medida que se aplican los filtros.
+bloqueada, falso positivo) y analista que gestionó el caso. Los resultados deberán actualizarse automáticamente al aplicar los filtros.
 
 ---
 
