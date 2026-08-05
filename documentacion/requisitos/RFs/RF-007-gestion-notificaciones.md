@@ -1,25 +1,43 @@
-<!--
-  ¿Qué? Requisito funcional que describe el sistema de notificaciones 
-  multicanal según el nivel de criticidad de las alertas.
-  ¿Para qué? Definir cómo el sistema notifica a los analistas y 
-  operadores a través de diferentes canales según la urgencia 
-  de cada alerta generada.
-  ¿Impacto? Sin notificaciones multicanal las alertas de alta 
-  criticidad podrían pasar desapercibidas, retrasando la respuesta 
-  ante fraudes activos.
--->
+# RF-007 — Gestión de Notificaciones
 
-# RF-007 — Notificaciones Multicanal por Nivel de Criticidad
+**Descripción**
 
-**Historias de usuario relacionadas:** HU-OP-04, HU-AN-07, HU-PR-06
+El sistema deberá emitir notificaciones cuando se genere una alerta
+de riesgo, utilizando los mecanismos configurados por la entidad
+financiera.
 
-## Descripción
+Las notificaciones permitirán informar oportunamente sobre eventos
+que requieran revisión o intervención.
 
-El sistema debe notificar a los analistas y operadores a través de 
-diferentes canales según el nivel de criticidad de la alerta: para 
-nivel bajo, notificación visual en el dashboard; para nivel medio, 
-notificación visual más notificación push; para nivel alto (80–95 %), 
-notificación visual, push y correo electrónico al analista responsable. 
+---
+
+## Flujo
+
+1. Se recibe una alerta desde RF-006.
+
+2. Se determina el nivel de criticidad.
+
+3. Se seleccionan los canales configurados.
+
+4. Se envía la notificación.
+
+5. Se registra el envío.
+
+---
+
+## Reglas
+
+RN-039 Las notificaciones deberán asociarse a una alerta.
+
+RN-040 Los canales utilizados serán configurables.
+
+RN-041 Toda notificación deberá registrarse.
+
+RN-042 El usuario autorizado podrá acceder directamente al caso desde la notificación.
+
+RN-043 El sistema permitirá utilizar múltiples canales de notificación.
+
+RN-044 La configuración de canales podrá modificarse sin alterar la lógica del sistema.notificación visual, push y correo electrónico al analista responsable. 
 Para bloqueos automáticos (score > 95 %), se activan todos los canales 
 de notificación de forma simultánea e inmediata.
 
