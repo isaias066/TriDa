@@ -2,7 +2,7 @@
 
 # TriDa
 
-### *[Aquí va el eslogan de TriDa ❤️]*
+### *Eslogan*
 
 Sistema inteligente para la detección de fraude financiero mediante Inteligencia Artificial local.
 
@@ -14,7 +14,7 @@ Sistema inteligente para la detección de fraude financiero mediante Inteligenci
 
 ---
 
-# 📖 Descripción
+# Descripción
 
 TriDa es un sistema inteligente diseñado para fortalecer la detección de fraude financiero mediante el análisis de transacciones en tiempo real.
 
@@ -24,7 +24,7 @@ El sistema fue concebido como una solución modular y desacoplada que puede inte
 
 ---
 
-# ✨ Características
+# Características
 
 - Evaluación inteligente de transacciones.
 - Procesamiento en tiempo real.
@@ -38,7 +38,7 @@ El sistema fue concebido como una solución modular y desacoplada que puede inte
 
 ---
 
-# 🏗️ Arquitectura General
+# Arquitectura General
 
 ```text
                      SISTEMA BANCARIO
@@ -74,12 +74,12 @@ El sistema fue concebido como una solución modular y desacoplada que puede inte
 La documentación completa de la arquitectura puede consultarse en:
 
 ```text
-docs/architecture.md
+documentos/arquitectura.md
 ```
 
 ---
 
-# 🧠 Modelo de Inteligencia Artificial
+# Modelo de Inteligencia Artificial
 
 TriDa implementa un modelo de Inteligencia Artificial ejecutado localmente basado en **Random Forest**.
 
@@ -97,7 +97,7 @@ La arquitectura permite sustituir el modelo por otros algoritmos en futuras vers
 
 ---
 
-# ⚙️ Stack Tecnológico
+# Stack Tecnológico
 
 ## Frontend
 
@@ -130,7 +130,7 @@ La arquitectura permite sustituir el modelo por otros algoritmos en futuras vers
 
 ---
 
-# 📂 Estructura del proyecto
+# Estructura del proyecto
 
 ```text
 TriDa/
@@ -146,7 +146,7 @@ TriDa/
 
 ---
 
-# 🔄 Flujo de procesamiento
+# Flujo de procesamiento
 
 ```text
 Transacción
@@ -182,7 +182,7 @@ Sistema Bancario
 
 ---
 
-# 🚀 Objetivos del proyecto
+# Objetivos del proyecto
 
 - Detectar patrones de fraude en tiempo real.
 - Reducir falsos positivos.
@@ -192,28 +192,28 @@ Sistema Bancario
 
 ---
 
-# 📚 Documentación
+# Documentación
 
 Toda la documentación técnica del proyecto se encuentra en la carpeta **docs/**.
 
-- Arquitectura
+- documentos/arquitectura
 - Modelo de Inteligencia Artificial
 - API
 - Worker
-- Base de datos
+- documentos/db
 - Feature Engineering
 - Manual técnico
 
 ---
 
-# 👥 Equipo de desarrollo
+# Equipo de desarrollo
 
-Proyecto desarrollado como parte del proceso de formación en Ingeniería de Software y Análisis y Desarrollo de Software.
+Proyecto desarrollado como parte del proceso de formación en Ingeniería de él tecnólogo Análisis y Desarrollo de Software del SENA. Equipo conformado por: Angie Catalina Bueno Melo y Juan Diego Morales Prieto. 
 
 ---
 
-# 📌 Estado del proyecto
+# Estado del proyecto
 
-🚧 **MVP en desarrollo**
+**MVP en DESARROLLO**
 
 La versión actual implementa la arquitectura base del sistema y un modelo de Inteligencia Artificial local para la evaluación del riesgo de fraude financiero.
