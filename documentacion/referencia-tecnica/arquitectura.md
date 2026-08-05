@@ -2,17 +2,20 @@
 
 ## Introducción
 
-La arquitectura de TriDa está diseñada bajo un enfoque modular, escalable y desacoplado, permitiendo integrarse con diferentes sistemas financieros sin depender de tecnologías específicas del cliente.
+La arquitectura de TriDa fue diseñada bajo un enfoque modular, escalable y desacoplado, permitiendo su integración con distintos sistemas financieros sin depender de tecnologías específicas del cliente.
 
-El sistema funciona como un motor inteligente de evaluación de riesgo que opera en segundo plano durante el procesamiento de una transacción. Su propósito es analizar múltiples factores de riesgo mediante un modelo de Inteligencia Artificial local basado en Machine Learning para estimar la probabilidad de fraude en tiempo real.
+TriDa opera como un sistema inteligente de evaluación de riesgo que trabaja en segundo plano durante el procesamiento de las transacciones. Su función consiste en analizar múltiples factores de riesgo mediante un modelo de Inteligencia Artificial ejecutado localmente, estimando la probabilidad de fraude antes de que la transacción continúe su flujo normal.
 
-La arquitectura prioriza:
+Este enfoque permite combinar un análisis basado en características previamente definidas con la capacidad del modelo para identificar patrones complejos presentes en los datos históricos.
+
+La arquitectura prioriza los siguientes principios:
 
 - Baja latencia.
-- Independencia de servicios externos.
 - Escalabilidad.
+- Independencia de servicios externos.
+- Integración sencilla con sistemas existentes.
 - Explicabilidad de las decisiones.
-- Facilidad de integración con entidades financieras.
+- Capacidad de evolución del modelo.
 
 ---
 
@@ -23,16 +26,17 @@ La arquitectura de TriDa fue diseñada siguiendo los siguientes principios:
 - Arquitectura modular.
 - Componentes desacoplados.
 - Procesamiento en tiempo real.
+- Separación entre lógica de negocio e Inteligencia Artificial.
 - Escalabilidad horizontal.
+- Reentrenamiento del modelo.
 - Explicabilidad de las predicciones.
-- Capacidad de reentrenamiento del modelo.
-- Integración sencilla mediante APIs y Workers.
+- Facilidad de mantenimiento e integración.
 
 ---
 
 # Arquitectura general
 
-```
+```text
                      SISTEMA BANCARIO
                             │
                             ▼
@@ -43,13 +47,14 @@ La arquitectura de TriDa fue diseñada siguiendo los siguientes principios:
                             │
                             ▼
         Módulo de extracción de características
-                (Feature Engineering)
+                (7 Factores de Riesgo)
                             │
                             ▼
-             Modelo IA Local (Machine Learning)
+            Modelo de Inteligencia Artificial
+                    (Random Forest)
                             │
                             ▼
-        Probabilidad de fraude + nivel de confianza
+        Probabilidad de fraude + Confianza
                             │
                             ▼
                  Motor de decisiones
@@ -68,172 +73,238 @@ La arquitectura de TriDa fue diseñada siguiendo los siguientes principios:
 
 ## 1. Worker
 
-El Worker actúa como intermediario entre el sistema bancario y TriDa.
+El Worker constituye el punto de integración entre TriDa y el sistema financiero.
 
-Sus responsabilidades incluyen:
+Su función es recibir la información de cada transacción, comunicarla con TriDa y devolver el resultado obtenido al sistema de origen.
 
-- Recibir la información de la transacción.
-- Validar la comunicación.
-- Enviar la información a TriDa.
+### Responsabilidades
+
+- Recibir la transacción.
+- Gestionar la comunicación con TriDa.
+- Enviar la información para su análisis.
 - Recibir la respuesta del sistema.
 - Retornar el resultado al sistema bancario.
 
-Gracias a este componente, TriDa permanece desacoplado de la infraestructura tecnológica del cliente.
+Este componente permite desacoplar completamente TriDa de la infraestructura tecnológica de cada entidad financiera.
 
 ---
 
-## 2. Módulo de validación y normalización
+## 2. Validación y normalización
 
-Antes de procesar una transacción, el sistema verifica que toda la información requerida esté presente y sea consistente.
+Antes de iniciar cualquier análisis, TriDa verifica que la información recibida sea consistente y contenga todos los datos necesarios.
 
-Entre sus funciones se encuentran:
+Durante esta etapa se realizan procesos como:
 
 - Validación de campos obligatorios.
 - Verificación de formatos.
 - Normalización de datos.
-- Preparación de la información para el modelo de IA.
+- Preparación de la información para el análisis.
+
+Este módulo garantiza que el modelo de Inteligencia Artificial reciba información uniforme y confiable.
 
 ---
 
-## 3. Módulo de extracción de características (Feature Engineering)
+## 3. Módulo de extracción de características
 
-Este componente transforma la información de una transacción en variables numéricas que representan el comportamiento de la operación.
+Este componente transforma la información de una transacción en variables que representan distintos aspectos del riesgo.
 
-TriDa utiliza siete factores principales de riesgo:
+TriDa utiliza siete factores principales:
 
-- Factor de desviación del monto.
-- Factor de reconocimiento del dispositivo.
-- Factor de ubicación geográfica.
-- Factor de velocidad transaccional.
-- Factor de horario.
-- Factor de comportamiento histórico.
-- Factor de riesgo por país.
+- Desviación del monto.
+- Reconocimiento del dispositivo.
+- Ubicación geográfica.
+- Velocidad transaccional.
+- Horario de la operación.
+- Comportamiento histórico.
+- Riesgo asociado al país.
 
-Estos factores constituyen las variables de entrada del modelo de Machine Learning.
+Estos factores constituyen las variables de entrada del modelo de Inteligencia Artificial.
 
-Este módulo no toma decisiones sobre el fraude; únicamente genera información estructurada para que el modelo pueda analizar patrones complejos.
+Es importante destacar que este módulo **no determina si una transacción es fraudulenta**. Su única responsabilidad consiste en transformar la información original en características estructuradas que posteriormente serán analizadas por el modelo.
 
 ---
 
-## 4. Modelo de Inteligencia Artificial Local
+## 4. Modelo de Inteligencia Artificial
 
-TriDa emplea un modelo de Machine Learning ejecutado localmente para analizar los factores de riesgo generados durante la etapa de Feature Engineering.
+El núcleo analítico de TriDa está conformado por un modelo de Inteligencia Artificial ejecutado localmente.
 
-El modelo aprende patrones históricos de fraude utilizando datos previamente etiquetados durante su entrenamiento.
+Para la versión MVP del proyecto se implementa un modelo basado en **Random Forest**, seleccionado por ofrecer un equilibrio entre precisión, robustez e interpretabilidad, características especialmente relevantes para sistemas de detección de fraude.
 
-A partir de la combinación de los siete factores de riesgo, el modelo estima la probabilidad de que una transacción sea fraudulenta.
+El modelo recibe como entrada los siete factores de riesgo generados durante la etapa de extracción de características y estima la probabilidad de que una transacción corresponda a un comportamiento fraudulento.
 
-Al ejecutarse localmente, el sistema ofrece:
+Al ejecutarse localmente, el modelo ofrece diversas ventajas:
 
 - Baja latencia.
 - Independencia de servicios externos.
-- Mayor privacidad de los datos.
+- Mayor privacidad de la información.
 - Menores costos operativos.
 - Posibilidad de reentrenamiento.
+- Facilidad para evolucionar hacia modelos más avanzados.
+
+La arquitectura fue diseñada para permitir reemplazar el modelo de Inteligencia Artificial sin afectar el resto de los componentes del sistema.
 
 ---
 
 ## 5. Motor de decisiones
 
-El motor de decisiones interpreta la probabilidad generada por el modelo de IA y determina la acción correspondiente.
+El modelo de Inteligencia Artificial no toma decisiones directamente sobre las transacciones.
+
+Su función consiste únicamente en estimar una probabilidad de fraude.
+
+A partir de dicha probabilidad, el Motor de Decisiones interpreta el resultado utilizando umbrales configurables definidos por la entidad financiera.
 
 Las acciones posibles son:
 
 - Aprobar la transacción.
-- Solicitar verificación adicional.
+- Solicitar una verificación adicional.
 - Bloquear la transacción.
 
-Los umbrales de decisión son configurables y pueden ajustarse según las políticas de la entidad financiera.
+Esta separación entre predicción y decisión permite adaptar TriDa a diferentes políticas de riesgo sin modificar el modelo de Inteligencia Artificial.
 
 ---
 
 ## 6. Dashboard y auditoría
 
-Toda decisión tomada por TriDa es registrada para permitir su consulta posterior.
+Todas las transacciones procesadas son registradas para facilitar su consulta y análisis posterior.
 
-Este módulo permite:
+Este componente permite:
 
-- Visualizar transacciones procesadas.
-- Consultar el nivel de riesgo.
-- Revisar la probabilidad estimada.
-- Auditar decisiones del sistema.
+- Consultar el historial de transacciones.
+- Visualizar el nivel de riesgo estimado.
 - Analizar tendencias de fraude.
+- Facilitar procesos de auditoría.
+- Dar seguimiento al desempeño del modelo.
 
-Asimismo, facilita el análisis de desempeño del modelo y la identificación de patrones emergentes.
+Asimismo, constituye la base para futuros procesos de entrenamiento y mejora continua.
 
 ---
 
 # Flujo de procesamiento
 
+El procesamiento de una transacción sigue el siguiente flujo:
+
 1. El sistema bancario genera una nueva transacción.
 
-2. El Worker recibe la información y la envía a TriDa.
+2. El Worker recibe la solicitud y la envía a TriDa.
 
-3. TriDa valida y normaliza los datos.
+3. TriDa valida y normaliza la información recibida.
 
-4. El módulo de Feature Engineering calcula los siete factores de riesgo.
+4. El módulo de extracción de características calcula los siete factores de riesgo.
 
-5. El modelo de Machine Learning analiza dichos factores.
+5. Los factores son enviados al modelo de Inteligencia Artificial.
 
-6. Se estima la probabilidad de fraude.
+6. El modelo estima la probabilidad de fraude.
 
-7. El motor de decisiones determina la acción correspondiente.
+7. El Motor de Decisiones interpreta la predicción obtenida.
 
-8. El resultado es enviado nuevamente al Worker.
+8. Se determina la acción correspondiente.
 
-9. El sistema bancario ejecuta la acción indicada.
+9. El resultado es enviado nuevamente al Worker.
 
-10. La información queda registrada para auditoría y futuras tareas de entrenamiento.
+10. El sistema bancario ejecuta la acción definida.
+
+11. La información queda registrada para auditoría y futuras tareas de entrenamiento.
+
+---
+
+# Stack Tecnológico
+
+## Frontend
+
+- React
+- Vite
+- Tailwind CSS
+- TypeScript
+
+## Backend
+
+- Node.js
+- Express.js
+- Prisma ORM
+
+## Base de datos
+
+- PostgreSQL
+
+## Inteligencia Artificial
+
+- Python
+- Scikit-learn
+- Pandas
+- NumPy
+
+## Herramientas
+
+- Git
+- GitHub
+
+---
+
+# Decisiones de arquitectura
+
+Durante el diseño inicial del proyecto se evaluó la integración con modelos de Inteligencia Artificial mediante APIs externas.
+
+Sin embargo, tras analizar aspectos como costos operativos, latencia, disponibilidad del servicio y privacidad de los datos, se optó por implementar un modelo de Inteligencia Artificial ejecutado localmente.
+
+Esta decisión proporciona beneficios importantes para un sistema de detección de fraude:
+
+- Mayor velocidad de respuesta.
+- Independencia de proveedores externos.
+- Reducción de costos de operación.
+- Mayor control sobre la información procesada.
+- Posibilidad de reentrenamiento periódico del modelo.
 
 ---
 
 # Entrenamiento del modelo
 
-El modelo de Inteligencia Artificial se entrena utilizando un conjunto histórico de transacciones previamente clasificadas como legítimas o fraudulentas.
+El modelo de Inteligencia Artificial se entrena utilizando un conjunto histórico de transacciones clasificadas previamente como legítimas o fraudulentas.
 
-Durante este proceso el algoritmo aprende patrones de comportamiento asociados al fraude financiero, permitiendo posteriormente realizar inferencias sobre nuevas transacciones.
+Durante este proceso el algoritmo aprende patrones presentes en los datos, permitiéndole posteriormente estimar el riesgo asociado a nuevas transacciones.
 
-El entrenamiento se realiza de manera independiente al procesamiento de las transacciones, evitando afectar el rendimiento del sistema en producción.
+El entrenamiento se realiza de manera independiente al procesamiento en tiempo real, evitando afectar el rendimiento del sistema durante su operación.
 
 ---
 
 # Explicabilidad
 
-TriDa incorpora un enfoque de Inteligencia Artificial explicable (Explainable AI).
+TriDa incorpora principios de Inteligencia Artificial Explicable (Explainable AI).
 
-Además de generar una probabilidad de fraude, el sistema conserva información sobre los factores que más influyeron en la predicción.
+Además de estimar la probabilidad de fraude, el sistema conserva información sobre los factores que más influyeron en cada predicción.
 
 Esto permite:
 
-- Facilitar auditorías.
-- Justificar decisiones.
-- Apoyar a analistas financieros.
-- Incrementar la confianza en el modelo.
+- Justificar las decisiones tomadas.
+- Facilitar procesos de auditoría.
+- Apoyar el trabajo de analistas financieros.
+- Incrementar la confianza en el sistema.
 
 ---
 
 # Escalabilidad
 
-La arquitectura modular permite incorporar nuevos componentes sin afectar el funcionamiento general del sistema.
+La arquitectura modular permite incorporar nuevos componentes sin afectar el funcionamiento del sistema.
 
 Entre las posibles ampliaciones se encuentran:
 
 - Nuevos factores de riesgo.
-- Modelos de IA más avanzados.
+- Modelos de Inteligencia Artificial más avanzados.
 - Detección de anomalías.
-- Reentrenamiento automático.
+- Reentrenamiento automatizado.
 - Integración con múltiples entidades financieras.
+- Balanceo de carga y despliegues distribuidos.
 
 ---
 
 # Futuras mejoras
 
-La arquitectura fue diseñada para evolucionar conforme aumente el volumen de información disponible.
+La arquitectura fue diseñada para evolucionar conforme aumente el volumen de información disponible y las necesidades del sistema.
 
-Entre las mejoras previstas se encuentran:
+Las principales líneas de evolución contempladas son:
 
-- Incorporación de aprendizaje continuo.
-- Optimización del modelo de Machine Learning.
-- Integración de técnicas avanzadas de detección de anomalías.
+- Optimización del modelo de Inteligencia Artificial.
 - Incorporación de nuevos indicadores de riesgo.
+- Aprendizaje continuo.
+- Técnicas avanzadas de detección de anomalías.
 - Mejoras en la interpretabilidad del modelo.
+- Optimización del rendimiento para grandes volúmenes de transacciones.
