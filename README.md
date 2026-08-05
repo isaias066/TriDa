@@ -196,14 +196,9 @@ Sistema Bancario
 
 Toda la documentación técnica del proyecto se encuentra en la carpeta **docs/**.
 
-- documentos/arquitectura.dm
-- Modelo de Inteligencia Artificial
-- API
-- Worker
-- documentos/db
-- Feature Engineering
-- Manual técnico
-
+-
+-
+-
 ---
 
 # Equipo de desarrollo
