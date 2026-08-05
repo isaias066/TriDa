@@ -19,8 +19,7 @@ El sistema debe permitir a los usuarios autorizados (auditores y
 administradores) consultar el histórico completo de registros de 
 auditoría mediante filtros por fecha, cliente, tipo de transacción, 
 analista y score. Las consultas históricas deben estar disponibles 
-para análisis forense de fraudes, generación de evidencia para 
-procesos legales y elaboración de informes regulatorios. Los 
+para auditorías internas, investigaciones de incidentes y generación de reportes. Los 
 registros históricos deben conservarse por un mínimo de 5 años 
 según normativa financiera colombiana.
 
