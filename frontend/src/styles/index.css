@@ -1,0 +1,256 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/*
+ * ¿Qué? Estilos globales con directivas Tailwind + variables CSS de compatibilidad.
+ * ¿Para qué? Cargar Tailwind CSS y definir las variables CSS que usan los
+ *            componentes existentes con estilos inline (var(--bg-primary), etc.).
+ * ¿Impacto? Este archivo es el puente entre los estilos inline actuales y
+ *           Tailwind. Los componentes pueden usar ambos sistemas simultáneamente.
+ */
+
+/* ============================================================================
+   DIRECTIVAS DE TAILWIND
+   ============================================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+   FUENTE INTER — Google Fonts
+   ============================================================================ */
+
+
+/* ============================================================================
+   CAPA BASE — Reset y defaults globales
+   ============================================================================ */
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply font-sans text-sm leading-relaxed;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  #root {
+    isolation: isolate;
+    min-height: 100vh;
+  }
+
+  /* Foco visible solo con teclado (RD-006) */
+  :focus { outline: none; }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    box-shadow: var(--focus-ring);
+    outline: none;
+  }
+
+  /* Selección de texto con color de marca */
+  ::selection {
+    background: rgba(99, 102, 241, 0.35);
+    color: var(--text-primary);
+  }
+
+  /* Movimiento reducido — Accesibilidad */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ============================================================================
+   VARIABLES CSS — MODO OSCURO (Índigo + Neon Futurista)
+   
+   Estas variables permiten que los componentes existentes con estilos inline
+   (style={{ background: 'var(--bg-primary)' }}) funcionen correctamente
+   sin necesidad de migrarlos a Tailwind inmediatamente.
+   ============================================================================ */
+
+:root,
+[data-theme='dark'] {
+  /* Backgrounds */
+  --bg-primary:    #0B0D1A;
+  --bg-secondary:  #111427;
+  --bg-tertiary:   #1A1D35;
+  --bg-elevated:   #232847;
+
+  /* Textos */
+  --text-primary:   #E8EAF6;
+  --text-secondary: #9FA4C4;
+  --text-tertiary:  #6B70A0;
+  --text-disabled:  #3D4270;
+
+  /* Bordes (con tono índigo — efecto glass futurista) */
+  --border:        rgba(99, 102, 241, 0.12);
+  --border-strong: rgba(99, 102, 241, 0.25);
+  --border-focus:  #6366F1;
+
+  /* Color primario */
+  --color-primary:       #6366F1;
+  --color-primary-light: #818CF8;
+  --color-primary-hover: #4F46E5;
+
+  /* Estados — Neon */
+  --color-success:    #06D6A0;
+  --color-success-bg: rgba(6, 214, 160, 0.1);
+  --color-warning:    #FFB547;
+  --color-warning-bg: rgba(255, 181, 71, 0.1);
+  --color-danger:     #FF6B6B;
+  --color-danger-bg:  rgba(255, 107, 107, 0.1);
+  --color-info:       #00E5FF;
+  --color-info-bg:    rgba(0, 229, 255, 0.1);
+  --color-orange:     #FF8A4C;
+  --color-orange-bg:  rgba(255, 138, 76, 0.1);
+
+  /* Accent */
+  --accent:       #6366F1;
+  --accent-light: #818CF8;
+
+  /* Neon highlights */
+  --neon-violet: #7C3AED;
+  --neon-green:  #06D6A0;
+  --neon-cyan:   #00E5FF;
+  --neon-coral:  #FF6B6B;
+  --neon-amber:  #FFB547;
+
+  /* Sombras con glow índigo */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.05);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 30px rgba(99, 102, 241, 0.08);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 40px rgba(99, 102, 241, 0.1);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 60px rgba(99, 102, 241, 0.12);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(99, 102, 241, 0.15);
+  --scrollbar-thumb-hover: rgba(99, 102, 241, 0.25);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.35);
+}
+
+/* ============================================================================
+   VARIABLES CSS — MODO CLARO (Azul Acero Profesional)
+   ============================================================================ */
+
+[data-theme='light'] {
+  /* Backgrounds */
+  --bg-primary:   #F0F2F7;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary:  #E8EBF0;
+  --bg-elevated:  #FFFFFF;
+
+  /* Textos */
+  --text-primary:   #1E2B40;
+  --text-secondary: #486387;
+  --text-tertiary:  #6582AA;
+  --text-disabled:  #9CA3AF;
+
+  /* Bordes */
+  --border:        rgba(51, 70, 99, 0.12);
+  --border-strong: rgba(51, 70, 99, 0.20);
+  --border-focus:  #486387;
+
+  /* Color primario (azul acero) */
+  --color-primary:       #486387;
+  --color-primary-light: #6582AA;
+  --color-primary-hover: #334663;
+
+  /* Estados — Profesionales (más sobrios que neon) */
+  --color-success:    #16A34A;
+  --color-success-bg: rgba(22, 163, 74, 0.08);
+  --color-warning:    #D97706;
+  --color-warning-bg: rgba(217, 119, 6, 0.08);
+  --color-danger:     #DC2626;
+  --color-danger-bg:  rgba(220, 38, 38, 0.08);
+  --color-info:       #0284C7;
+  --color-info-bg:    rgba(2, 132, 199, 0.08);
+  --color-orange:     #D97706;
+  --color-orange-bg:  rgba(217, 119, 6, 0.08);
+
+  /* Accent */
+  --accent:       #486387;
+  --accent-light: #6582AA;
+
+  /* Sombras (sutiles, sin glow) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(51, 70, 99, 0.15);
+  --scrollbar-thumb-hover: rgba(51, 70, 99, 0.25);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(72, 99, 135, 0.3);
+}
+
+/* ============================================================================
+   SCROLLBAR PERSONALIZADO
+   ============================================================================ */
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* ============================================================================
+   UTILIDADES GLOBALES
+   ============================================================================ */
+
+@layer utilities {
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}

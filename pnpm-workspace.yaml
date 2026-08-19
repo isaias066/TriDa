@@ -1,0 +1,6 @@
+packages:
+  - "FrontEnd"
+  - "BackEnd"
+
+onlyBuiltDependencies:
+  - esbuild
