@@ -2,15 +2,14 @@
   "name": "trida-backend",
   "version": "1.0.0",
   "private": true,
- 
+  "type": "module",
   "scripts": {
-    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "lint": "eslint \"src/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.{ts,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,json}\"",
     "seed:admin": "tsx src/scripts/seedAdmin.ts"
   },
   "dependencies": {

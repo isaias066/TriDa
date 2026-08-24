@@ -104,8 +104,13 @@ export const authService = {
     const token = signToken(payload);
 
     // Actualizar último acceso con cast explícito a integer
-    await prisma.$queryRaw`SELECT trida.fn_actualizar_ultimo_acceso(${Number(user.id_usuario)}::integer)`.catch(() => null);
-    return {
+    // Actualizar último acceso de forma nativa con Prisma (Evita error de deserialización 'void')
+    await prisma.usuarioSistema
+      .update({
+        where: { id_usuario: user.id_usuario },
+        data: { ultimo_acceso: new Date() },
+      })
+      .catch((err) => console.warn('No se pudo actualizar último acceso:', err.message));    return {
       token,
       user: {
         id: user.id_usuario,
