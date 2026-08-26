@@ -4,7 +4,7 @@
 // ¿Impacto? Se usa en UsersPage para renderizar la lista de clientes bancarios.
 
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Mail, Phone, MapPin, Calendar } from 'lucide-react';
 import { UserAvatar } from '@components/shared/UserAvatar';
 import { RiskBadge } from '@components/shared/RiskBadge';
 import { BankBadge } from '@components/shared/BankBadge';
@@ -23,6 +23,17 @@ export interface ClientCardProps {
   defaultExpanded?: boolean;
   onClick?: (client: BankClient) => void;
   className?: string;
+}
+
+// ==============================================================================
+// HELPERS
+// ==============================================================================
+
+function getRiskBarColor(score: number): string {
+  if (score >= 80) return '#FF6B6B';
+  if (score >= 60) return '#FF8A4C';
+  if (score >= 30) return '#FFB547';
+  return '#06D6A0';
 }
 
 // ==============================================================================
@@ -55,229 +66,138 @@ export function ClientCard({
   };
 
   // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const cardStyle: React.CSSProperties = {
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    transition: 'border-color 0.15s ease',
-    opacity: client.status === 'inactive' ? 0.6 : 1,
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '14px 16px',
-    cursor: 'pointer',
-    transition: 'background 0.15s ease',
-    userSelect: 'none',
-  };
-
-  const infoStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    flex: 1,
-    minWidth: 0,
-  };
-
-  const nameStyle: React.CSSProperties = {
-    fontSize: '13px',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  };
-
-  const statusDotStyle: React.CSSProperties = {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: client.status === 'active' ? '#34D399' : '#6B7280',
-    flexShrink: 0,
-  };
-
-  const chevronStyle: React.CSSProperties = {
-    color: 'var(--text-tertiary)',
-    transition: 'transform 0.2s ease',
-    transform: expanded ? 'rotate(90deg)' : 'none',
-    flexShrink: 0,
-  };
-
-  const expandedStyle: React.CSSProperties = {
-    padding: '0 16px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    borderTop: '1px solid var(--border)',
-    paddingTop: '12px',
-  };
-
-  const detailRowStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '8px',
-  };
-
-  const detailLabelStyle: React.CSSProperties = {
-    fontSize: '11px',
-    color: 'var(--text-tertiary)',
-    fontWeight: 500,
-  };
-
-  const detailValueStyle: React.CSSProperties = {
-    fontSize: '12px',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    textAlign: 'right',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    maxWidth: '200px',
-  };
-
-  const devicesSectionStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  };
-
-  const devicesTitleStyle: React.CSSProperties = {
-    fontSize: '10px',
-    fontWeight: 700,
-    color: 'var(--text-tertiary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  };
-
-  const riskBarStyle: React.CSSProperties = {
-    width: '100%',
-    height: '4px',
-    background: 'var(--bg-tertiary)',
-    borderRadius: '2px',
-    overflow: 'hidden',
-    marginTop: '4px',
-  };
-
-  const riskFillStyle: React.CSSProperties = {
-    height: '100%',
-    width: `${client.riskScore}%`,
-    borderRadius: '2px',
-    transition: 'width 0.3s ease',
-  };
-
-  // ==============================================================================
   // RENDER
   // ==============================================================================
 
   return (
     <div
-      className={`client-card ${client.status === 'inactive' ? 'client-card-inactive' : ''} ${className}`}
-      style={cardStyle}
+      className={`client-card self-start overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] font-sans transition-[border-color] duration-150 ${
+        client.status === 'inactive' ? 'client-card-inactive opacity-60' : ''
+      } ${className}`}
     >
-      {/* Header (siempre visible) */}
+      {/* ================================================================
+          HEADER — siempre visible
+          ================================================================ */}
       <div
-        style={headerStyle}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
         role="button"
         tabIndex={0}
         aria-expanded={expanded}
         aria-label={`${client.name} — ${client.bank.name}`}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = 'var(--bg-tertiary)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = 'transparent';
-        }}
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        className="flex cursor-pointer select-none items-center gap-3 px-4 py-3.5 transition-colors duration-150 hover:bg-[var(--bg-tertiary)]"
       >
         <UserAvatar name={client.name} color={client.bank.color} size="sm" />
 
-        <div style={infoStyle}>
-          <span style={nameStyle} title={client.name}>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-[13px] font-bold text-[var(--text-primary)]" title={client.name}>
             {client.name}
           </span>
           <BankBadge bank={client.bank} size="sm" />
         </div>
 
-        <span style={statusDotStyle} title={client.status === 'active' ? 'Activo' : 'Inactivo'} />
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${
+            client.status === 'active' ? 'bg-neon-green shadow-neon-green' : 'bg-[var(--text-disabled)]'
+          }`}
+          title={client.status === 'active' ? 'Activo' : 'Inactivo'}
+        />
 
-        <ChevronRight size={16} style={chevronStyle} />
+        <ChevronRight
+          size={16}
+          className={`shrink-0 text-[var(--text-tertiary)] transition-transform duration-200 ${
+            expanded ? 'rotate-90' : ''
+          }`}
+        />
       </div>
 
-      {/* Contenido expandido */}
+      {/* ================================================================
+          CONTENIDO EXPANDIDO — orden por importancia
+          ================================================================ */}
       {expanded && (
-        <div style={expandedStyle}>
-          {/* Detalles del cliente */}
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>Email</span>
-            <span style={detailValueStyle} title={client.email}>
-              {client.email}
-            </span>
+        <div className="flex flex-col gap-3 border-t border-[var(--border)] px-4 pb-4 pt-3">
+          {/* 1. Riesgo (máxima prioridad en antifraude) */}
+          <div className="flex flex-col gap-2 rounded-lg bg-[var(--bg-tertiary)] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                Riesgo
+              </span>
+              <RiskBadge score={client.riskScore} size="sm" />
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-secondary)]">
+              <div
+                className="h-full rounded-full transition-[width] duration-300 ease-out"
+                style={{
+                  width: `${Math.min(100, Math.max(0, client.riskScore))}%`,
+                  background: getRiskBarColor(client.riskScore),
+                  boxShadow: `0 0 8px ${getRiskBarColor(client.riskScore)}66`,
+                }}
+              />
+            </div>
           </div>
 
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>Teléfono</span>
-            <span style={detailValueStyle}>{client.phone}</span>
-          </div>
-
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>Ciudad</span>
-            <span style={detailValueStyle}>{client.city}</span>
-          </div>
-
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>País</span>
-            <span style={detailValueStyle}>{client.country}</span>
-          </div>
-
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>Riesgo</span>
-            <RiskBadge score={client.riskScore} size="sm" />
-          </div>
-
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>Registrado</span>
-            <span style={detailValueStyle}>{formatDate(client.registeredAt)}</span>
-          </div>
-
-          <div style={detailRowStyle}>
-            <span style={detailLabelStyle}>Estado</span>
+          {/* 2. Estado */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium text-[var(--text-tertiary)]">Estado</span>
             <StatusBadge type="user" status={client.status} size="sm" />
           </div>
 
-          {/* Barra de riesgo */}
-          <div style={riskBarStyle}>
-            <div
-              style={{
-                ...riskFillStyle,
-                background:
-                  client.riskScore >= 80
-                    ? '#EF4444'
-                    : client.riskScore >= 60
-                      ? '#F97316'
-                      : client.riskScore >= 30
-                        ? '#FBBF24'
-                        : '#34D399',
-              }}
-            />
+          {/* 3. Contacto */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
+                <Mail size={12} className="shrink-0 opacity-70" aria-hidden="true" />
+                Email
+              </span>
+              <span
+                className="max-w-[200px] truncate text-right text-xs font-semibold text-[var(--text-primary)]"
+                title={client.email}
+              >
+                {client.email}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
+                <Phone size={12} className="shrink-0 opacity-70" aria-hidden="true" />
+                Teléfono
+              </span>
+              <span className="text-right text-xs font-semibold tabular-nums text-[var(--text-primary)]">
+                {client.phone}
+              </span>
+            </div>
           </div>
 
-          {/* Dispositivos */}
-          <div style={devicesSectionStyle}>
-            <span style={devicesTitleStyle}>Dispositivos ({devices.length})</span>
+          {/* 4. Ubicación (ciudad + país compactos) */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
+              <MapPin size={12} className="shrink-0 opacity-70" aria-hidden="true" />
+              Ubicación
+            </span>
+            <span className="max-w-[200px] truncate text-right text-xs font-semibold text-[var(--text-primary)]">
+              {client.city}, {client.country}
+            </span>
+          </div>
+
+          {/* 5. Fecha de registro */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
+              <Calendar size={12} className="shrink-0 opacity-70" aria-hidden="true" />
+              Registrado
+            </span>
+            <span className="text-right text-xs font-semibold text-[var(--text-primary)]">
+              {formatDate(client.registeredAt)}
+            </span>
+          </div>
+
+          {/* 6. Dispositivos */}
+          <div className="flex flex-col gap-1.5 border-t border-[var(--border)] pt-3">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-tertiary)]">
+              Dispositivos ({devices.length})
+            </span>
 
             {devices.length === 0 ? (
-              <span
-                style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}
-              >
+              <span className="text-[11px] italic text-[var(--text-tertiary)]">
                 Sin dispositivos registrados
               </span>
             ) : (

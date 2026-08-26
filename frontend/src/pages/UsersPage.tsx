@@ -152,11 +152,9 @@ export function UsersPage() {
   // PAGINACIÓN
   // ==============================================================================
 
-  // Paginación separada por vista (TypeScript no puede unir BankClient[] con Device[])
   const clientsPagination = usePagination(filteredClients, { pageSize: 30 });
   const devicesPagination = usePagination(filteredDevices, { pageSize: 30 });
 
-  // Seleccionar la paginación activa según la vista
   const activePagination = viewMode === 'clients' ? clientsPagination : devicesPagination;
   const { page, totalPages, totalItems, pageSize, goToPage, range } = activePagination;
 
@@ -188,113 +186,12 @@ export function UsersPage() {
   };
 
   // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const pageStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    padding: '24px',
-    minHeight: '100vh',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '16px',
-    flexWrap: 'wrap',
-  };
-
-  const headerLeftStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: 'var(--text-primary)',
-    margin: 0,
-    letterSpacing: '-0.02em',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    margin: 0,
-  };
-
-  const tabsStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '4px',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: '10px',
-    padding: '4px',
-  };
-
-  const tabStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '8px 16px',
-    fontSize: '12px',
-    fontWeight: active ? 700 : 500,
-    color: active ? '#818CF8' : 'var(--text-secondary)',
-    background: active ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-    fontFamily: 'inherit',
-  });
-
-  const filtersRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-  };
-
-  const toolbarStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    flexWrap: 'wrap',
-  };
-
-  const rangeInfoStyle: React.CSSProperties = {
-    fontSize: '12px',
-    color: 'var(--text-tertiary)',
-  };
-
-  const gridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-    gap: '12px',
-  };
-
-  const devicesGridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '10px',
-  };
-
-  // ==============================================================================
   // RENDER — LOADING
   // ==============================================================================
 
   if (loading) {
     return (
-      <div style={pageStyle}>
+      <div className="flex min-h-screen flex-col gap-4 p-6 font-sans md:p-8">
         <Spinner size="lg" label="Cargando datos..." centered />
       </div>
     );
@@ -306,7 +203,7 @@ export function UsersPage() {
 
   if (error) {
     return (
-      <div style={pageStyle}>
+      <div className="flex min-h-screen flex-col gap-4 p-6 font-sans md:p-8">
         <EmptyState
           preset="error"
           description={error}
@@ -325,18 +222,17 @@ export function UsersPage() {
   // ==============================================================================
 
   return (
-    <div style={pageStyle}>
+    <div className="flex min-h-full flex-col gap-5 p-6 font-sans md:p-8">
       {/* ================================================================
           HEADER
           ================================================================ */}
-
-      <header style={headerStyle}>
-        <div style={headerLeftStyle}>
-          <h1 style={titleStyle}>
-            <Users size={24} />
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+            <Users size={24} aria-hidden="true" />
             Clientes y Dispositivos
           </h1>
-          <p style={subtitleStyle}>
+          <p className="m-0 text-[13px] text-[var(--text-secondary)]">
             {clients.length} clientes · {activeClients.length} activos · {inactiveClients.length}{' '}
             inactivos
             {viewMode === 'devices' && ` · ${allDevices.length} dispositivos`}
@@ -344,10 +240,14 @@ export function UsersPage() {
         </div>
 
         {/* Tabs de vista */}
-        <div style={tabsStyle}>
+        <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-1">
           <button
             type="button"
-            style={tabStyle(viewMode === 'clients')}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg border-none px-4 py-2 font-sans text-xs transition-all duration-150 ${
+              viewMode === 'clients'
+                ? 'bg-[rgba(99,102,241,0.12)] font-bold text-indigo-light'
+                : 'bg-transparent font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
             onClick={() => setViewMode('clients')}
             aria-pressed={viewMode === 'clients'}
           >
@@ -356,7 +256,11 @@ export function UsersPage() {
           </button>
           <button
             type="button"
-            style={tabStyle(viewMode === 'devices')}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-lg border-none px-4 py-2 font-sans text-xs transition-all duration-150 ${
+              viewMode === 'devices'
+                ? 'bg-[rgba(99,102,241,0.12)] font-bold text-indigo-light'
+                : 'bg-transparent font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
             onClick={() => setViewMode('devices')}
             aria-pressed={viewMode === 'devices'}
           >
@@ -367,11 +271,9 @@ export function UsersPage() {
       </header>
 
       {/* ================================================================
-          FILTROS
+          FILTROS Y BÚSQUEDA
           ================================================================ */}
-
-      <div style={filtersRowStyle}>
-        {/* Toggle de inactivos (solo en vista clientes) */}
+      <div className="flex flex-wrap items-center gap-3">
         {viewMode === 'clients' && (
           <FilterChip
             label={showInactive ? '👁 Ocultar inactivos' : '👁‍🗨 Mostrar inactivos'}
@@ -382,7 +284,6 @@ export function UsersPage() {
         )}
       </div>
 
-      {/* Búsqueda */}
       <SearchInput
         value={search}
         onChange={setSearch}
@@ -394,9 +295,8 @@ export function UsersPage() {
         }
       />
 
-      {/* Toolbar con info de rango */}
-      <div style={toolbarStyle}>
-        <span style={rangeInfoStyle}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-[var(--text-tertiary)]">
           {range.total === 0
             ? 'Sin resultados'
             : `Mostrando ${range.start}-${range.end} de ${range.total}`}
@@ -406,7 +306,6 @@ export function UsersPage() {
       {/* ================================================================
           CONTENIDO — Vista de Clientes
           ================================================================ */}
-
       {viewMode === 'clients' && (
         <>
           {filteredClients.length === 0 ? (
@@ -438,7 +337,8 @@ export function UsersPage() {
               />
             )
           ) : (
-            <div style={gridStyle}>
+            // AQUI ESTÁ LA CLAVE DEL GRID: items-start evita el stretch
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] items-start gap-3">
               {clientsPagination.items.map((client) => (
                 <ClientCard
                   key={client.id}
@@ -454,7 +354,6 @@ export function UsersPage() {
       {/* ================================================================
           CONTENIDO — Vista de Dispositivos
           ================================================================ */}
-
       {viewMode === 'devices' && (
         <>
           {filteredDevices.length === 0 ? (
@@ -475,7 +374,8 @@ export function UsersPage() {
               />
             )
           ) : (
-            <div style={devicesGridStyle}>
+            // AQUI ESTÁ LA CLAVE DEL GRID: items-start evita el stretch
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] items-start gap-2.5">
               {devicesPagination.items.map((device) => (
                 <DeviceCard key={device.id} device={device} detailed />
               ))}
@@ -487,7 +387,6 @@ export function UsersPage() {
       {/* ================================================================
           PAGINACIÓN
           ================================================================ */}
-
       <Pagination
         page={page}
         totalPages={totalPages}
