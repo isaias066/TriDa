@@ -28,9 +28,9 @@ const COLUMNS: DataTableColumn<SystemUser>[] = [
     label: 'Usuario',
     sortable: true,
     render: (u) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="flex items-center gap-2.5">
         <UserAvatar name={u.name} role={u.role} size="xs" />
-        <span style={{ fontWeight: 600 }}>{u.name}</span>
+        <span className="font-semibold text-[var(--text-primary)]">{u.name}</span>
       </div>
     ),
   },
@@ -38,7 +38,7 @@ const COLUMNS: DataTableColumn<SystemUser>[] = [
     key: 'email',
     label: 'Email',
     sortable: true,
-    render: (u) => <span style={{ fontSize: '12px' }}>{u.email}</span>,
+    render: (u) => <span className="text-xs text-[var(--text-secondary)]">{u.email}</span>,
   },
   {
     key: 'role',
@@ -46,7 +46,12 @@ const COLUMNS: DataTableColumn<SystemUser>[] = [
     render: (u) => {
       const meta = getRoleMetadata(u.role);
       return (
-        <span style={{ color: meta.color, fontWeight: 600, fontSize: '12px' }}>{meta.label}</span>
+        <span
+          className="rounded-md px-2 py-0.5 text-xs font-bold tracking-wide"
+          style={{ color: meta.color, background: `${meta.color}15` }}
+        >
+          {meta.label}
+        </span>
       );
     },
   },
@@ -56,7 +61,7 @@ const COLUMNS: DataTableColumn<SystemUser>[] = [
     sortable: true,
     sortAccessor: (u) => (u.lastLogin ? new Date(u.lastLogin) : null),
     render: (u) => (
-      <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+      <span className="text-[11px] font-medium text-[var(--text-tertiary)]">
         {u.lastLogin ? formatRelativeTime(u.lastLogin) : 'Nunca'}
       </span>
     ),
@@ -99,7 +104,7 @@ export function UsersTab() {
   const activeCount = users.filter((u) => u.status === 'active').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="flex flex-col gap-4 font-sans">
       <Card>
         <CardHeader
           title="Gestión de Usuarios"
@@ -130,13 +135,15 @@ export function UsersTab() {
               }
             />
           ) : (
-            <DataTable<SystemUser>
-              data={users}
-              columns={COLUMNS}
-              getRowKey={(u) => u.id}
-              autoSort
-              emptyMessage="No hay usuarios registrados en el sistema"
-            />
+            <div className="w-full overflow-hidden">
+              <DataTable<SystemUser>
+                data={users}
+                columns={COLUMNS}
+                getRowKey={(u) => u.id}
+                autoSort
+                emptyMessage="No hay usuarios registrados en el sistema"
+              />
+            </div>
           )}
         </CardBody>
       </Card>

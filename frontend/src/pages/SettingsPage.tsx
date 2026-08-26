@@ -69,107 +69,34 @@ export function SettingsPage() {
   const ActiveComponent = TAB_COMPONENTS[activeTab] ?? ProfileTab;
 
   // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const pageStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-    padding: '24px',
-    minHeight: '100vh',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: 'var(--text-primary)',
-    margin: 0,
-    letterSpacing: '-0.02em',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    margin: 0,
-  };
-
-  const layoutStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '20px',
-    flex: 1,
-  };
-
-  const tabsNavStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    width: '220px',
-    flexShrink: 0,
-    position: 'sticky',
-    top: '24px',
-    alignSelf: 'flex-start',
-  };
-
-  const tabButtonStyle = (isActive: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '10px 14px',
-    fontSize: '13px',
-    fontWeight: isActive ? 700 : 500,
-    color: isActive ? '#818CF8' : 'var(--text-secondary)',
-    background: isActive ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-    textAlign: 'left',
-    fontFamily: 'inherit',
-    width: '100%',
-    outline: 'none',
-  });
-
-  const contentStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-  };
-
-  // ==============================================================================
   // RENDER
   // ==============================================================================
 
   return (
-    <div style={pageStyle}>
+    <div className="flex min-h-full flex-col gap-5 p-6 font-sans md:p-8">
       {/* ================================================================
           HEADER
           ================================================================ */}
-
-      <header style={headerStyle}>
-        <h1 style={titleStyle}>
-          <Settings size={24} />
+      <header className="flex flex-col gap-1">
+        <h1 className="m-0 flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+          <Settings size={24} aria-hidden="true" />
           Configuración
         </h1>
-        <p style={subtitleStyle}>Ajustes del sistema, perfil y permisos</p>
+        <p className="m-0 text-[13px] text-[var(--text-secondary)]">
+          Ajustes del sistema, perfil y permisos
+        </p>
       </header>
 
       {/* ================================================================
           LAYOUT — Tabs laterales + Contenido
           ================================================================ */}
-
-      <div style={layoutStyle}>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         {/* Navegación de tabs (lateral) */}
-        <nav style={tabsNavStyle} role="tablist" aria-label="Secciones de configuración">
+        <nav
+          className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-1 lg:sticky lg:top-6 lg:w-[220px] lg:flex-col lg:overflow-visible lg:border-none lg:bg-transparent lg:p-0"
+          role="tablist"
+          aria-label="Secciones de configuración"
+        >
           {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -181,23 +108,15 @@ export function SettingsPage() {
                 role="tab"
                 aria-selected={isActive}
                 aria-controls={`settings-panel-${tab.id}`}
-                style={tabButtonStyle(isActive)}
                 onClick={() => setActiveTab(tab.id)}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.background = 'var(--bg-tertiary)';
-                    (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.background = 'transparent';
-                    (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
-                  }
-                }}
+                className={`flex w-full shrink-0 items-center gap-2.5 rounded-lg border-none px-3.5 py-2.5 text-left font-sans text-[13px] transition-all duration-150 outline-none focus-visible:shadow-[var(--focus-ring)] ${
+                  isActive
+                    ? 'bg-[rgba(99,102,241,0.1)] font-bold text-indigo-light'
+                    : 'bg-transparent font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+                }`}
               >
-                <Icon size={16} />
-                <span>{tab.label}</span>
+                <Icon size={16} className="shrink-0" aria-hidden="true" />
+                <span className="whitespace-nowrap">{tab.label}</span>
               </button>
             );
           })}
@@ -205,7 +124,7 @@ export function SettingsPage() {
 
         {/* Contenido del tab activo */}
         <div
-          style={contentStyle}
+          className="min-w-0 flex-1"
           role="tabpanel"
           id={`settings-panel-${activeTab}`}
           aria-label={`Panel: ${visibleTabs.find((t) => t.id === activeTab)?.label ?? activeTab}`}
