@@ -1,9 +1,6 @@
-"use strict";
 // ¿Qué? Motor determinista de scoring de riesgo basado en la Fórmula de Criticidad de TriDa (7 factores ponderados)
 // ¿Para qué? Calcular el score de riesgo (0-100) de cada transacción en tiempo real y decidir si se aprueba, alerta o bloquea
 // ¿Impacto? Núcleo del sistema antifraude. Cuando se integre la IA, este motor será reemplazado por el modelo ML entrenado
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.riskScoringEngine = void 0;
 // ── PESOS (Wᵢ) — Deben sumar 1.0 ──────────────────────────
 const WEIGHTS = {
     monto: 0.25, // W₁ — 25%
@@ -148,5 +145,5 @@ function evaluate(input) {
         },
     };
 }
-exports.riskScoringEngine = { evaluate };
+export const riskScoringEngine = { evaluate };
 //# sourceMappingURL=risk.service.js.map

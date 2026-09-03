@@ -1,23 +1,19 @@
-"use strict";
 // ¿Qué? Controlador HTTP del módulo de autenticación.
 // ¿Para qué? Extraer datos del request, validarlos y delegar la lógica al service.
-// ¿Impacto? Mantiene la capa HTTP delgada y tipada, sin lógica de negocio embebida.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.authController = void 0;
-const auth_service_js_1 = require("./auth.service.js");
-const auth_schemas_1 = require("./auth.schemas");
+// ¿Impacto? Capa HTTP delgada; incluye perfil y cambio de contraseña (Día 3).
+import { authService, AuthError } from './auth.service.js';
+import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, updateProfileSchema, changePasswordSchema, } from './auth.schemas.js';
 const handleError = (error, next) => {
-    if (error instanceof auth_service_js_1.AuthError) {
+    if (error instanceof AuthError) {
         return next(Object.assign(error, { statusCode: error.statusCode }));
     }
     return next(error);
 };
-exports.authController = {
+export const authController = {
     async login(req, res, next) {
         try {
-            const data = auth_schemas_1.loginSchema.parse(req.body);
-            const result = await auth_service_js_1.authService.login(data.email, data.password);
-            res.json(result);
+            const data = loginSchema.parse(req.body);
+            res.json(await authService.login(data.email, data.password));
         }
         catch (error) {
             handleError(error, next);
@@ -25,10 +21,8 @@ exports.authController = {
     },
     async register(req, res, next) {
         try {
-            const data = auth_schemas_1.registerSchema.parse(req.body);
-            const idGenerador = req.user.id_usuario;
-            const result = await auth_service_js_1.authService.register(data, idGenerador);
-            res.status(201).json(result);
+            const data = registerSchema.parse(req.body);
+            res.status(201).json(await authService.register(data, req.user.id_usuario));
         }
         catch (error) {
             handleError(error, next);
@@ -36,9 +30,8 @@ exports.authController = {
     },
     async forgotPassword(req, res, next) {
         try {
-            const data = auth_schemas_1.forgotPasswordSchema.parse(req.body);
-            const result = await auth_service_js_1.authService.forgotPassword(data.correo);
-            res.json(result);
+            const data = forgotPasswordSchema.parse(req.body);
+            res.json(await authService.forgotPassword(data.correo));
         }
         catch (error) {
             handleError(error, next);
@@ -51,9 +44,8 @@ exports.authController = {
                 res.status(400).json({ valid: false, error: 'Token no proporcionado' });
                 return;
             }
-            const result = await auth_service_js_1.authService.verifyResetToken(token);
-            const status = result.valid ? 200 : 401;
-            res.status(status).json(result);
+            const result = await authService.verifyResetToken(token);
+            res.status(result.valid ? 200 : 401).json(result);
         }
         catch (error) {
             handleError(error, next);
@@ -61,9 +53,8 @@ exports.authController = {
     },
     async resetPassword(req, res, next) {
         try {
-            const data = auth_schemas_1.resetPasswordSchema.parse(req.body);
-            const result = await auth_service_js_1.authService.resetPassword(data.token, data.nuevaContrasena);
-            res.json(result);
+            const data = resetPasswordSchema.parse(req.body);
+            res.json(await authService.resetPassword(data.token, data.nuevaContrasena));
         }
         catch (error) {
             handleError(error, next);
@@ -71,17 +62,33 @@ exports.authController = {
     },
     async me(req, res, next) {
         try {
-            const result = await auth_service_js_1.authService.getMe(req.user.id_usuario);
-            res.json(result);
+            res.json(await authService.getMe(req.user.id_usuario));
         }
         catch (error) {
             handleError(error, next);
         }
     },
-    async listUsers(req, res, next) {
+    async updateProfile(req, res, next) {
         try {
-            const result = await auth_service_js_1.authService.listSystemUsers();
-            res.json(result);
+            const data = updateProfileSchema.parse(req.body);
+            res.json(await authService.updateProfile(req.user.id_usuario, data));
+        }
+        catch (error) {
+            handleError(error, next);
+        }
+    },
+    async changePassword(req, res, next) {
+        try {
+            const data = changePasswordSchema.parse(req.body);
+            res.json(await authService.changePassword(req.user.id_usuario, data));
+        }
+        catch (error) {
+            handleError(error, next);
+        }
+    },
+    async listUsers(_req, res, next) {
+        try {
+            res.json(await authService.listSystemUsers());
         }
         catch (error) {
             handleError(error, next);

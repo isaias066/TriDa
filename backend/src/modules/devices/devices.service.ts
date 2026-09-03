@@ -2,7 +2,7 @@
 // ¿Para qué? Listar dispositivos usados en transacciones.
 // ¿Impacto? Apoya análisis de riesgo por dispositivo desconocido.
 
-import { prisma } from '../../db/prisma';
+import { prisma } from '../../db/prisma.js';
 
 export const devicesService = {
   async list(bancoCodigo?: string | null) {

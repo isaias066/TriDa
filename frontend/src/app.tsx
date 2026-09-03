@@ -1,6 +1,6 @@
 // ¿Qué? Componente raíz de la aplicación TriDa.
-// ¿Para qué? Configurar el router principal y los providers globales (theme, auth, bank, toast).
-// ¿Impacto? Habilita notificaciones flotantes y contexto global en toda la app.
+// ¿Para qué? Configurar el router principal, providers globales (theme, auth, bank, toast) y rutas del sistema.
+// ¿Impacto? Punto de entrada central de la interfaz; integra notificaciones flotantes y contextos globales.
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -57,6 +57,7 @@ export default function App() {
                   <Route path="/settings" element={<SettingsPage />} />
                 </Route>
 
+                {/* RUTA 404 */}
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </ToastProvider>

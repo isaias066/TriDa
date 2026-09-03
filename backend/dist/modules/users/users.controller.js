@@ -1,12 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.usersController = void 0;
-const users_service_js_1 = require("./users.service.js");
-const users_schemas_1 = require("./users.schemas");
-exports.usersController = {
+// ¿Qué? Controlador HTTP de usuarios del sistema.
+// ¿Para qué? Gestionar la consulta, cambio de estado (activo/inactivo) y asignación de roles.
+// ¿Impacto? Conecta la gestión administrativa de usuarios con el servicio y PostgreSQL, cumpliendo con ESM y RBAC.
+import { usersService } from "./users.service.js";
+import { updateUserStatusSchema, updateUserRoleSchema, } from "./users.schemas.js";
+export const usersController = {
     async listAll(_req, res, next) {
         try {
-            res.json(await users_service_js_1.usersService.listAll());
+            res.json(await usersService.listAll());
         }
         catch (error) {
             next(error);
@@ -14,8 +14,8 @@ exports.usersController = {
     },
     async updateStatus(req, res, next) {
         try {
-            const { estado } = users_schemas_1.updateUserStatusSchema.parse(req.body);
-            res.json(await users_service_js_1.usersService.updateStatus(Number(req.params.id), estado));
+            const { estado } = updateUserStatusSchema.parse(req.body);
+            res.json(await usersService.updateStatus(Number(req.params.id), estado));
         }
         catch (error) {
             next(error);
@@ -23,8 +23,8 @@ exports.usersController = {
     },
     async updateRole(req, res, next) {
         try {
-            const { rol } = users_schemas_1.updateUserRoleSchema.parse(req.body);
-            res.json(await users_service_js_1.usersService.updateRole(Number(req.params.id), rol));
+            const { rol } = updateUserRoleSchema.parse(req.body);
+            res.json(await usersService.updateRole(Number(req.params.id), rol));
         }
         catch (error) {
             next(error);

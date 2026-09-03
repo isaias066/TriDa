@@ -3,8 +3,8 @@
 // ¿Impacto? Conecta la vista de Analítica con las funciones SQL de agregación.
 
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../../types/index';
-import { analyticsService } from './analytics.service';
+import { AuthenticatedRequest } from '../../types/index.js';
+import { analyticsService } from './analytics.service.js';
 
 export const analyticsController = {
   async getMetrics(req: AuthenticatedRequest, res: Response, next: NextFunction) {

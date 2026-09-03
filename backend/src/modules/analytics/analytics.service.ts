@@ -2,7 +2,7 @@
 // ¿Para qué? Calcular KPIs y desgloses por tipo, ciudad, canal y banco.
 // ¿Impacto? Soporta la página de Analítica del dashboard.
 
-import { prisma } from '../../db/prisma';
+import { prisma } from '../../db/prisma.js';
 
 export const analyticsService = {
   async getMetrics(bancoCodigo?: string | null) {

@@ -197,3 +197,16 @@ model LogAuditoria {
   @@map("logs_auditoria")
   @@schema("trida")
 }
+
+model MapeoEntidadExterna {
+  id_mapeo       Int      @id @default(autoincrement())
+  origen         String   @default("SIMULADOR") @db.VarChar(50)
+  tipo_entidad   String   @db.VarChar(30)
+  id_externo     String   @db.VarChar(255)
+  id_interno     Int
+  fecha_registro DateTime @default(now()) @db.Timestamptz
+
+  @@unique([origen, tipo_entidad, id_externo], name: "uq_mapeo_origen_tipo_id")
+  @@map("mapeo_entidades_externas")
+  @@schema("trida")
+}

@@ -3,8 +3,8 @@
 // ¿Impacto? Nomenclatura en inglés según RL-001.
 
 import { Router } from 'express';
-import { customersController } from './customers.controller';
-import { requireAuth } from '../../middlewares/auth.middleware';
+import { customersController } from './customers.controller.js';
+import { requireAuth } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 

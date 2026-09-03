@@ -3,8 +3,8 @@
 // ¿Impacto? Conecta la página Mapa con PostgreSQL.
 
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../../types/index';
-import { mapService } from './map.service';
+import { AuthenticatedRequest } from '../../types/index.js';
+import { mapService } from './map.service.js';
 
 export const mapController = {
   async getStats(req: AuthenticatedRequest, res: Response, next: NextFunction) {

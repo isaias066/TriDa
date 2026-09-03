@@ -1,10 +1,7 @@
-"use strict";
 // ¿Qué? Servicio del dashboard con parseo inteligente del filtro de banco.
 // ¿Para qué? Convertir 'all' o cadenas vacías a NULL para que PostgreSQL devuelva los datos globales.
 // ¿Impacto? Permite que el dashboard muestre datos tanto para un banco específico como para 'Todos los Bancos'.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.dashboardService = void 0;
-const prisma_js_1 = require("../../db/prisma.js");
+import { prisma } from '../../db/prisma.js';
 function parseBancoCode(banco) {
     if (!banco)
         return null;
@@ -14,17 +11,17 @@ function parseBancoCode(banco) {
     }
     return banco;
 }
-exports.dashboardService = {
+export const dashboardService = {
     async getStats(bancoCodigo) {
         const code = parseBancoCode(bancoCodigo);
-        const rows = await prisma_js_1.prisma.$queryRaw `
+        const rows = await prisma.$queryRaw `
       SELECT * FROM trida.fn_dashboard_stats(${code})
     `;
         return rows[0] ?? null;
     },
     async getRecentAlerts(bancoCodigo) {
         const code = parseBancoCode(bancoCodigo);
-        return prisma_js_1.prisma.$queryRaw `
+        return prisma.$queryRaw `
       SELECT * FROM trida.fn_alertas_recientes(${code})
     `;
     },

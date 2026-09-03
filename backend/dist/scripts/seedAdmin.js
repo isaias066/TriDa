@@ -1,10 +1,8 @@
-"use strict";
 // ¿Qué? Script de siembra para la creación segura del usuario administrador inicial.
 // ¿Para qué? Crear el usuario admin leyendo credenciales de .env o argumentos de consola.
 // ¿Impacto? Resuelve P1-7 y P1-1 eliminando contraseñas y secretos hardcodeados en el código.
-Object.defineProperty(exports, "__esModule", { value: true });
-const prisma_1 = require("../db/prisma");
-const password_util_1 = require("../utils/password.util");
+import { prisma } from '../db/prisma.js';
+import { hashPassword } from '../utils/password.util.js';
 async function seedAdmin() {
     // P1-7: Leer credenciales de argumentos de consola o del .env (con fallback seguro)
     const email = process.argv[2] || process.env.ADMIN_EMAIL || 'admin@trida.com';
@@ -13,7 +11,7 @@ async function seedAdmin() {
     console.log('⏳ Verificando / creando usuario administrador inicial...');
     try {
         // 1. Verificar si ya existe el usuario
-        const adminExistente = await prisma_1.prisma.usuarioSistema.findUnique({
+        const adminExistente = await prisma.usuarioSistema.findUnique({
             where: { email },
         });
         if (adminExistente) {
@@ -21,9 +19,9 @@ async function seedAdmin() {
             process.exit(0);
         }
         // 2. Hashear la contraseña con bcryptjs (coste 12)
-        const passwordHash = await (0, password_util_1.hashPassword)(password);
+        const passwordHash = await hashPassword(password);
         // 3. Crear el administrador en PostgreSQL
-        const nuevoAdmin = await prisma_1.prisma.usuarioSistema.create({
+        const nuevoAdmin = await prisma.usuarioSistema.create({
             data: {
                 nombre_completo: nombre,
                 email,
@@ -55,7 +53,7 @@ async function seedAdmin() {
         console.error('❌ Error ejecutando la siembra del administrador:', error);
     }
     finally {
-        await prisma_1.prisma.$disconnect();
+        await prisma.$disconnect();
     }
 }
 seedAdmin();

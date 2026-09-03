@@ -1,10 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.usersService = void 0;
-const prisma_js_1 = require("../../db/prisma.js");
-exports.usersService = {
+import { prisma } from '../../db/prisma.js';
+export const usersService = {
     async listAll() {
-        const rows = await prisma_js_1.prisma.$queryRaw `
+        const rows = await prisma.$queryRaw `
       SELECT * FROM trida.fn_listar_usuarios_sistema()
     `;
         return rows.map((u) => {
@@ -24,7 +21,7 @@ exports.usersService = {
         });
     },
     async updateStatus(idUsuario, estado) {
-        const u = await prisma_js_1.prisma.usuarioSistema.update({
+        const u = await prisma.usuarioSistema.update({
             where: { id_usuario: idUsuario },
             data: { estado },
             select: {
@@ -42,7 +39,7 @@ exports.usersService = {
         };
     },
     async updateRole(idUsuario, rol) {
-        const u = await prisma_js_1.prisma.usuarioSistema.update({
+        const u = await prisma.usuarioSistema.update({
             where: { id_usuario: idUsuario },
             data: { rol },
             select: {

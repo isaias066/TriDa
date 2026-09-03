@@ -1,13 +1,14 @@
 // ¿Qué? Servicio de autenticación: login, registro, recuperación y reseteo de contraseña.
 // ¿Para qué? Centralizar la lógica de negocio de auth y aislarla de la capa HTTP.
-// ¿Impacto? Usa las funciones SQL existentes (fn_login, fn_register, fn_cambiar_contrasena) y cumple RS-003/RS-004.
+// ¿Impacto? Usa las funciones SQL (fn_login, fn_register, fn_cambiar_contrasena) con casts explícitos
+//           para prevenir errores de tipo BIGINT/INTEGER entre Prisma y PostgreSQL.
 
-import { prisma } from '../../db/prisma.js';
-import { hashPassword, verifyPassword } from '../../utils/password.util.js';
-import { signToken, verifyTokenSignature } from '../../utils/jwt.util.js';
-import { sendEmail } from '../../utils/mailer.util.js';
-import { config } from '../../config.js';
-import { UserPayload } from '../../types/index.js';
+import { prisma } from "../../db/prisma.js";
+import { hashPassword, verifyPassword } from "../../utils/password.util.js";
+import { signToken, verifyTokenSignature } from "../../utils/jwt.util.js";
+import { sendEmail } from "../../utils/mailer.util.js";
+import { config } from "../../config.js";
+import { UserPayload } from "../../types/index.js";
 
 // ── Tipos de respuesta de las funciones SQL ──────────────────
 
@@ -66,7 +67,7 @@ export class AuthError extends Error {
     public statusCode: number = 400,
   ) {
     super(message);
-    this.name = 'AuthError';
+    this.name = "AuthError";
   }
 }
 
@@ -80,18 +81,21 @@ export const authService = {
     `;
 
     if (rows.length === 0) {
-      throw new AuthError('Credenciales inválidas', 401);
+      throw new AuthError("Credenciales inválidas", 401);
     }
 
     const user = rows[0];
 
     if (!user.estado) {
-      throw new AuthError('Tu cuenta está desactivada. Contacta al administrador.', 403);
+      throw new AuthError(
+        "Tu cuenta está desactivada. Contacta al administrador.",
+        403,
+      );
     }
 
     const passwordOK = await verifyPassword(password, user.password_hash);
     if (!passwordOK) {
-      throw new AuthError('Credenciales inválidas', 401);
+      throw new AuthError("Credenciales inválidas", 401);
     }
 
     const payload: UserPayload = {
@@ -104,7 +108,10 @@ export const authService = {
     const token = signToken(payload);
 
     // Actualizar último acceso con cast explícito a integer
-    await prisma.$queryRaw`SELECT trida.fn_actualizar_ultimo_acceso(${Number(user.id_usuario)}::integer)`.catch(() => null);
+    await prisma.$executeRaw`SELECT trida.fn_actualizar_ultimo_acceso(${Number(user.id_usuario)}::integer)`.catch(
+      () => null,
+    );
+
     return {
       token,
       user: {
@@ -118,7 +125,12 @@ export const authService = {
 
   // ── REGISTER (solo admin) ──────────────────────────────────
   async register(
-    data: { nombre_completo: string; email: string; password: string; rol: string },
+    data: {
+      nombre_completo: string;
+      email: string;
+      password: string;
+      rol: string;
+    },
     idGenerador: number,
   ) {
     const hash = await hashPassword(data.password);
@@ -126,17 +138,17 @@ export const authService = {
     try {
       const rows = await prisma.$queryRaw<FnRegisterRow[]>`
         SELECT * FROM trida.fn_register(
-          ${data.nombre_completo},
-          ${data.email},
-          ${hash},
-          ${data.rol},
-          ${idGenerador}
+          ${data.nombre_completo}::text,
+          ${data.email}::text,
+          ${hash}::text,
+          ${data.rol}::text,
+          ${idGenerador ? Number(idGenerador) : null}::bigint
         )
       `;
 
       const nuevo = rows[0];
       return {
-        message: 'Usuario creado exitosamente',
+        message: "Usuario creado exitosamente",
         user: {
           id: nuevo.id_usuario,
           nombre: nuevo.nombre_completo,
@@ -146,11 +158,11 @@ export const authService = {
         },
       };
     } catch (error: any) {
-      if (error.code === '23505') {
-        throw new AuthError('Ya existe un usuario con ese email', 409);
+      if (error.code === "23505") {
+        throw new AuthError("Ya existe un usuario con ese email", 409);
       }
-      if (error.code === '23514') {
-        throw new AuthError('El formato del email no es válido', 400);
+      if (error.code === "23514") {
+        throw new AuthError("El formato del email no es válido", 400);
       }
       throw error;
     }
@@ -159,7 +171,8 @@ export const authService = {
   // ── FORGOT PASSWORD ────────────────────────────────────────
   async forgotPassword(correo: string) {
     // Respuesta genérica siempre (evita enumeración de usuarios — RS-003)
-    const genericMessage = 'Si el correo existe, recibirás un enlace de recuperación en breve.';
+    const genericMessage =
+      "Si el correo existe, recibirás un enlace de recuperación en breve.";
 
     const users = await prisma.$queryRaw<FnLoginRow[]>`
       SELECT * FROM trida.fn_login(${correo.trim()}::text)
@@ -175,9 +188,9 @@ export const authService = {
       {
         id_usuario: user.id_usuario,
         email: user.email,
-        purpose: 'reset_password',
+        purpose: "reset_password",
       },
-      '15m',
+      "15m",
     );
 
     const resetLink = `${config.FRONTEND_URL}/reset-password?token=${resetToken}`;
@@ -218,7 +231,7 @@ export const authService = {
       </div>
     `;
 
-    await sendEmail(user.email, 'Recuperación de contraseña - TriDa', html);
+    await sendEmail(user.email, "Recuperación de contraseña - TriDa", html);
 
     return { message: genericMessage };
   },
@@ -226,16 +239,18 @@ export const authService = {
   // ── VERIFY RESET TOKEN ─────────────────────────────────────
   async verifyResetToken(token: string) {
     try {
-      const decoded = verifyTokenSignature<{ purpose?: string; email: string }>(token);
-      if (decoded.purpose !== 'reset_password') {
-        return { valid: false, error: 'Token inválido' };
+      const decoded = verifyTokenSignature<{ purpose?: string; email: string }>(
+        token,
+      );
+      if (decoded.purpose !== "reset_password") {
+        return { valid: false, error: "Token inválido" };
       }
       return { valid: true, email: decoded.email };
     } catch (err: any) {
-      if (err.name === 'TokenExpiredError') {
-        return { valid: false, error: 'El enlace ha expirado' };
+      if (err.name === "TokenExpiredError") {
+        return { valid: false, error: "El enlace ha expirado" };
       }
-      return { valid: false, error: 'Token inválido' };
+      return { valid: false, error: "Token inválido" };
     }
   },
 
@@ -243,30 +258,32 @@ export const authService = {
   async resetPassword(token: string, nuevaContrasena: string) {
     let decoded: { purpose?: string; email: string };
     try {
-      decoded = verifyTokenSignature<{ purpose?: string; email: string }>(token);
+      decoded = verifyTokenSignature<{ purpose?: string; email: string }>(
+        token,
+      );
     } catch (err: any) {
-      if (err.name === 'TokenExpiredError') {
-        throw new AuthError('El enlace ha expirado. Solicita uno nuevo.', 401);
+      if (err.name === "TokenExpiredError") {
+        throw new AuthError("El enlace ha expirado. Solicita uno nuevo.", 401);
       }
-      throw new AuthError('Enlace inválido o manipulado', 401);
+      throw new AuthError("Enlace inválido o manipulado", 401);
     }
 
-    if (decoded.purpose !== 'reset_password') {
-      throw new AuthError('Token inválido', 401);
+    if (decoded.purpose !== "reset_password") {
+      throw new AuthError("Token inválido", 401);
     }
 
     const hash = await hashPassword(nuevaContrasena);
 
     const rows = await prisma.$queryRaw<FnCambiarContrasenaRow[]>`
-      SELECT * FROM trida.fn_cambiar_contrasena(${decoded.email}, ${hash})
+      SELECT * FROM trida.fn_cambiar_contrasena(${decoded.email}::text, ${hash}::text)
     `;
 
     if (rows.length === 0 || rows[0].actualizado === false) {
-      throw new AuthError('No se pudo actualizar la contraseña', 404);
+      throw new AuthError("No se pudo actualizar la contraseña", 404);
     }
 
     return {
-      message: '¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.',
+      message: "¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.",
       email: decoded.email,
     };
   },
@@ -274,11 +291,11 @@ export const authService = {
   // ── ME (usuario actual) ────────────────────────────────────
   async getMe(idUsuario: number) {
     const rows = await prisma.$queryRaw<FnUsuarioActualRow[]>`
-      SELECT * FROM trida.fn_usuario_actual(${idUsuario})
+      SELECT * FROM trida.fn_usuario_actual(${Number(idUsuario)}::integer)
     `;
 
     if (rows.length === 0) {
-      throw new AuthError('Usuario no encontrado', 404);
+      throw new AuthError("Usuario no encontrado", 404);
     }
 
     const u = rows[0];
@@ -294,12 +311,12 @@ export const authService = {
   },
 
   // ── LISTAR USUARIOS SISTEMA (solo admin) ───────────────────
-   async listSystemUsers() {
+  async listSystemUsers() {
     const rows = await prisma.$queryRaw<FnListarUsuariosRow[]>`
       SELECT * FROM trida.fn_listar_usuarios_sistema()
     `;
 
-    return rows.map((u) => {
+    return rows.map((u: FnListarUsuariosRow) => {
       const idNum = Number(u.id_usuario);
       return {
         id: String(idNum),
@@ -311,10 +328,14 @@ export const authService = {
         estado: Boolean(u.estado),
         fecha_creacion: u.fecha_creacion,
         ultimo_acceso: u.ultimo_acceso,
-        id_usuario_generador: u.id_usuario_generador ? Number(u.id_usuario_generador) : null,
+        id_usuario_generador: u.id_usuario_generador
+          ? Number(u.id_usuario_generador)
+          : null,
       };
     });
-  },  // ── UPDATE PROFILE (Día 3) ─────────────────────────────────
+  },
+
+  // ── UPDATE PROFILE (Día 3) ─────────────────────────────────
   async updateProfile(
     idUsuario: number,
     data: { nombre_completo?: string; email?: string },
@@ -324,7 +345,7 @@ export const authService = {
     });
 
     if (!actual || !actual.estado) {
-      throw new AuthError('Usuario no encontrado o inactivo', 404);
+      throw new AuthError("Usuario no encontrado o inactivo", 404);
     }
 
     const nuevoNombre = data.nombre_completo?.trim() ?? actual.nombre_completo;
@@ -343,17 +364,18 @@ export const authService = {
         .create({
           data: {
             id_usuario: idUsuario,
-            tipo_accion: 'ACTUALIZAR_PERFIL',
-            entidad_afectada: 'usuarios_sistemas',
-            descripcion: 'Perfil actualizado (nombre/email) por el propio usuario',
+            tipo_accion: "ACTUALIZAR_PERFIL",
+            entidad_afectada: "usuarios_sistemas",
+            descripcion:
+              "Perfil actualizado (nombre/email) por el propio usuario",
             id_identidad: idUsuario,
-            direccion_ip: '127.0.0.1',
+            direccion_ip: "127.0.0.1",
           },
         })
         .catch(() => null);
 
       return {
-        message: 'Perfil actualizado correctamente',
+        message: "Perfil actualizado correctamente",
         user: {
           id: actualizado.id_usuario,
           nombre: actualizado.nombre_completo,
@@ -363,8 +385,8 @@ export const authService = {
         },
       };
     } catch (error: any) {
-      if (error?.code === 'P2002' || error?.code === '23505') {
-        throw new AuthError('Ya existe un usuario con ese email', 409);
+      if (error?.code === "P2002" || error?.code === "23505") {
+        throw new AuthError("Ya existe un usuario con ese email", 409);
       }
       throw error;
     }
@@ -380,16 +402,19 @@ export const authService = {
     });
 
     if (!full || !full.estado) {
-      throw new AuthError('Usuario no encontrado o inactivo', 404);
+      throw new AuthError("Usuario no encontrado o inactivo", 404);
     }
 
     const ok = await verifyPassword(data.contrasenaActual, full.password_hash);
     if (!ok) {
-      throw new AuthError('La contraseña actual es incorrecta', 401);
+      throw new AuthError("La contraseña actual es incorrecta", 401);
     }
 
     if (data.contrasenaActual === data.nuevaContrasena) {
-      throw new AuthError('La nueva contraseña debe ser distinta a la actual', 400);
+      throw new AuthError(
+        "La nueva contraseña debe ser distinta a la actual",
+        400,
+      );
     }
 
     const hash = await hashPassword(data.nuevaContrasena);
@@ -399,22 +424,22 @@ export const authService = {
     `;
 
     if (!result.length || result[0].actualizado === false) {
-      throw new AuthError('No se pudo actualizar la contraseña', 500);
+      throw new AuthError("No se pudo actualizar la contraseña", 500);
     }
 
     await prisma.logAuditoria
       .create({
         data: {
           id_usuario: idUsuario,
-          tipo_accion: 'CAMBIO_CONTRASENA',
-          entidad_afectada: 'usuarios_sistemas',
-          descripcion: 'Contraseña cambiada por el usuario autenticado',
+          tipo_accion: "CAMBIO_CONTRASENA",
+          entidad_afectada: "usuarios_sistemas",
+          descripcion: "Contraseña cambiada por el usuario autenticado",
           id_identidad: idUsuario,
-          direccion_ip: '127.0.0.1',
+          direccion_ip: "127.0.0.1",
         },
       })
       .catch(() => null);
 
-    return { message: 'Contraseña actualizada correctamente' };
+    return { message: "Contraseña actualizada correctamente" };
   },
 };

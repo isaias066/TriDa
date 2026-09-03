@@ -2,7 +2,7 @@
 // ¿Para qué? Obtener estadísticas y ubicaciones de transacciones.
 // ¿Impacto? Alimenta el mapa de calor / marcadores del frontend.
 
-import { prisma } from '../../db/prisma';
+import { prisma } from '../../db/prisma.js';
 
 export const mapService = {
   async getStats(bancoCodigo?: string | null) {

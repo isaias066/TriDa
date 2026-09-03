@@ -3,8 +3,8 @@
 // ¿Impacto? Página de clientes / usuarios del negocio con datos reales.
 
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../../types/index';
-import { customersService } from './customers.service';
+import { AuthenticatedRequest } from '../../types/index.js';
+import { customersService } from './customers.service.js';
 
 export const customersController = {
   async list(req: AuthenticatedRequest, res: Response, next: NextFunction) {

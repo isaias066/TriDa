@@ -1,19 +1,17 @@
-"use strict";
 // ¿Qué? Servicio de consulta y procesamiento de transacciones.
 // ¿Para qué? Registrar transacciones, consultar el modelo IA y generar alertas.
 // ¿Impacto? Conecta PostgreSQL + Backend + Random Forest de TriDa.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.transactionsService = void 0;
-const prisma_js_1 = require("../../db/prisma.js");
-const config_js_1 = require("../../config.js");
+//           Soporta paginación honesta de 3 parámetros (Día 4).
+import { prisma } from "../../db/prisma.js";
+import { config } from "../../config.js";
 async function consultarIA(data) {
     const ahora = new Date();
     const diaSemana = ahora.getDay();
     const hora = ahora.getHours();
-    const response = await fetch(`${config_js_1.config.IA_URL}/predict`, {
-        method: 'POST',
+    const response = await fetch(`${config.IA_URL}/predict`, {
+        method: "POST",
         headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
         },
         body: JSON.stringify({
             monto: Number(data.monto),
@@ -32,12 +30,33 @@ async function consultarIA(data) {
     }
     return (await response.json());
 }
-exports.transactionsService = {
-    async list(bancoCodigo) {
-        return prisma_js_1.prisma.$queryRaw `
-      SELECT * FROM trida.fn_transacciones(${bancoCodigo ?? null})
+export const transactionsService = {
+    // ── LISTADO PAGINADO (Día 4 — Paginación honesta) ──────────────────────────
+    async list(bancoCodigo = null, limit = 500, offset = 0) {
+        // 1. Obtener los registros paginados de la BD
+        const items = await prisma.$queryRaw `
+      SELECT * FROM trida.fn_transacciones(
+        ${bancoCodigo}::text,
+        ${limit}::integer,
+        ${offset}::integer
+      )
     `;
+        // 2. Obtener el total real utilizando la función count del Día 4
+        const countRows = await prisma.$queryRaw `
+      SELECT trida.fn_transacciones_count(${bancoCodigo}::text) as count
+    `;
+        const total = countRows[0]?.count ? Number(countRows[0].count) : 0;
+        const hasMore = offset + items.length < total;
+        // 3. Retornar el contrato completo de paginación
+        return {
+            items,
+            total,
+            limit,
+            offset,
+            hasMore,
+        };
     },
+    // ── CREAR TRANSACCIÓN ──────────────────────────────────────────────────────
     async create(data) {
         // 1. Consultar el modelo Random Forest de TriDa
         const resultadoIA = await consultarIA(data);
@@ -47,27 +66,27 @@ exports.transactionsService = {
         let estadoTransaccion;
         let nivel;
         if (score >= 95) {
-            estadoTransaccion = 'BLOQUEADA';
-            nivel = 'CRITICA';
+            estadoTransaccion = "BLOQUEADA";
+            nivel = "CRITICA";
         }
         else if (score >= 80) {
-            estadoTransaccion = 'ALERTADA';
-            nivel = 'ALTA';
+            estadoTransaccion = "ALERTADA";
+            nivel = "ALTA";
         }
         else if (score >= 50) {
-            estadoTransaccion = 'ALERTADA';
-            nivel = 'MEDIA';
+            estadoTransaccion = "ALERTADA";
+            nivel = "MEDIA";
         }
         else if (score >= 30) {
-            estadoTransaccion = 'ALERTADA';
-            nivel = 'BAJA';
+            estadoTransaccion = "ALERTADA";
+            nivel = "BAJA";
         }
         else {
-            estadoTransaccion = 'APROBADA';
-            nivel = 'BAJA';
+            estadoTransaccion = "APROBADA";
+            nivel = "BAJA";
         }
         // 3. Guardar la transacción en PostgreSQL
-        const nuevaTx = await prisma_js_1.prisma.transaccion.create({
+        const nuevaTx = await prisma.transaccion.create({
             data: {
                 id_cliente: data.id_cliente,
                 id_dispositivo: data.id_dispositivo,
@@ -87,14 +106,14 @@ exports.transactionsService = {
         // 4. Generar alerta cuando el score sea >= 30
         let alertaGenerada = null;
         if (score >= 30) {
-            alertaGenerada = await prisma_js_1.prisma.alerta.create({
+            alertaGenerada = await prisma.alerta.create({
                 data: {
                     id_transaccion: nuevaTx.id_transaccion,
                     nivel_criticidad: nivel,
                     factores_sospechosos: fraude
-                        ? 'Detectado por modelo Random Forest'
-                        : 'Riesgo detectado por modelo Random Forest',
-                    estado_alerta: 'ACTIVA',
+                        ? "Detectado por modelo Random Forest"
+                        : "Riesgo detectado por modelo Random Forest",
+                    estado_alerta: "ACTIVA",
                     prioridad: score >= 80 ? 10 : 5,
                 },
             });

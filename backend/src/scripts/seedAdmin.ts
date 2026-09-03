@@ -2,8 +2,8 @@
 // ¿Para qué? Crear el usuario admin leyendo credenciales de .env o argumentos de consola.
 // ¿Impacto? Resuelve P1-7 y P1-1 eliminando contraseñas y secretos hardcodeados en el código.
 
-import { prisma } from '../db/prisma';
-import { hashPassword } from '../utils/password.util';
+import { prisma } from '../db/prisma.js';
+import { hashPassword } from '../utils/password.util.js';
 
 async function seedAdmin() {
   // P1-7: Leer credenciales de argumentos de consola o del .env (con fallback seguro)
