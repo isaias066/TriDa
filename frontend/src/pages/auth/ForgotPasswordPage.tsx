@@ -1,78 +1,41 @@
-// ¿Qué? Página de solicitud de recuperación de contraseña del sistema TriDa.
-// ¿Para qué? Reemplazar forgotpassword.jsx con una versión modular que solo
-//            compone AuthLayout + ForgotPasswordForm.
-// ¿Impacto? Se accede en /forgot-password. Toda la lógica de recuperación
-//           está en el sub-componente ForgotPasswordForm.
+// ¿Qué? Página de solicitud de recuperación de contraseña.
+// ¿Para qué? Solicitar enlace de reset con identidad de marca TriDa.
+// ¿Impacto? Ruta /forgot-password — logo oficial + formulario.
 
 import { useEffect } from 'react';
-import { KeyRound } from 'lucide-react';
 import { AuthLayout } from '@components/layout/AuthLayout';
 import { ForgotPasswordForm } from '@components/auth/ForgotPasswordForm';
 import { Card, CardHeader, CardBody } from '@components/ui/Card';
-
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
+import { BRAND_LOGO_SRC, BRAND_NAME } from '@constants/Brand';
 
 export function ForgotPasswordPage() {
-  // ==============================================================================
-  // METADATA — Actualizar título del documento
-  // ==============================================================================
-
   useEffect(() => {
     document.title = 'Recuperar contraseña — TriDa';
   }, []);
-
-  // ==============================================================================
-  // ESTILOS DEL HEADER
-  // ==============================================================================
-
-  const iconContainerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '56px',
-    height: '56px',
-    borderRadius: '50%',
-    background: 'rgba(99, 102, 241, 0.15)',
-    color: '#6366F1',
-    margin: '0 auto 16px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '20px',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-    margin: '0 0 6px',
-    textAlign: 'center',
-    letterSpacing: '-0.01em',
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    margin: 0,
-    textAlign: 'center',
-    lineHeight: 1.5,
-  };
-
-  // ==============================================================================
-  // RENDER
-  // ==============================================================================
 
   return (
     <AuthLayout>
       <Card variant="elevated" padding="lg">
         <CardHeader>
-          <div>
-            {/* Ícono */}
-            <div style={iconContainerStyle} aria-hidden="true">
-              <KeyRound size={26} strokeWidth={2} />
+          <div className="flex w-full flex-col items-center text-center">
+            <div
+              className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-[rgba(99,102,241,0.12)] p-2"
+              aria-hidden="true"
+            >
+              <img
+                src={BRAND_LOGO_SRC}
+                alt={BRAND_NAME}
+                className="h-full w-full object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
             </div>
 
-            {/* Título y descripción */}
-            <h1 style={titleStyle}>Recuperar contraseña</h1>
-            <p style={subtitleStyle}>
+            <h1 className="m-0 mb-1.5 text-xl font-bold tracking-tight text-[var(--text-primary)]">
+              Recuperar contraseña
+            </h1>
+            <p className="m-0 max-w-sm text-[13px] leading-relaxed text-[var(--text-secondary)]">
               Ingresa el correo asociado a tu cuenta y te enviaremos un enlace para restablecer tu
               contraseña de forma segura.
             </p>

@@ -1,116 +1,111 @@
-// ¿Qué? Card compacta que muestra información de un dispositivo registrado.
-// ¿Para qué? Reemplazar el markup inline de dispositivos que estaba dentro de
-//            la card del cliente en users.jsx.
-// ¿Impacto? Se usa dentro de ClientCard para mostrar los dispositivos de cada
-//           cliente bancario.
+// ¿Qué? Card compacta de un dispositivo registrado.
+// ¿Para qué? Mostrar tipo, OS, navegador y banco dentro de ClientCard o vista dispositivos.
+// ¿Impacto? Tailwind + tokens de tema; iconos Lucide en lugar de emojis.
 
-import { getDeviceEmoji, getDeviceCategoryLabel } from '@utils/Device';
+import { Smartphone, Monitor, Tablet, Watch, HelpCircle, type LucideIcon } from 'lucide-react';
+import { getDeviceCategoryLabel } from '@utils/Device';
 import { formatDate } from '@utils/Formatters';
+import { cn } from '@utils/cn';
 import type { Device } from '@app-types';
 
-// ==============================================================================
-// TYPES
-// ==============================================================================
-
-/** Props del DeviceCard. */
 export interface DeviceCardProps {
   device: Device;
   detailed?: boolean;
   className?: string;
 }
 
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
+/** Resuelve ícono Lucide según tipo/categoría (flexible, sin emojis). */
+function resolveDeviceIcon(type?: string, category?: string): LucideIcon {
+  const raw = `${type ?? ''} ${category ?? ''}`.toLowerCase();
+  if (raw.includes('tablet') || raw.includes('ipad')) return Tablet;
+  if (raw.includes('watch') || raw.includes('wear')) return Watch;
+  if (
+    raw.includes('desktop') ||
+    raw.includes('pc') ||
+    raw.includes('laptop') ||
+    raw.includes('mac') ||
+    raw.includes('windows')
+  ) {
+    return Monitor;
+  }
+  if (
+    raw.includes('mobile') ||
+    raw.includes('phone') ||
+    raw.includes('android') ||
+    raw.includes('ios')
+  ) {
+    return Smartphone;
+  }
+  return HelpCircle;
+}
 
 export function DeviceCard({ device, detailed = false, className = '' }: DeviceCardProps) {
-  const emoji = getDeviceEmoji(device.type);
+  const Icon = resolveDeviceIcon(device.type, device.category);
   const categoryLabel = getDeviceCategoryLabel(device.category);
-
-  // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const cardStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-    padding: detailed ? '12px' : '8px 10px',
-    background: detailed ? 'var(--bg-secondary)' : 'var(--bg-tertiary)',
-    border: detailed ? '1px solid var(--border)' : 'none',
-    borderRadius: '8px',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const emojiStyle: React.CSSProperties = {
-    fontSize: '18px',
-    flexShrink: 0,
-    lineHeight: 1,
-    marginTop: '1px',
-  };
-
-  const infoStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    flex: 1,
-    minWidth: 0,
-  };
-
-  const typeStyle: React.CSSProperties = {
-    fontSize: '12px',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  };
-
-  const detailStyle: React.CSSProperties = {
-    fontSize: '10px',
-    color: 'var(--text-tertiary)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  };
-
-  const bankStyle: React.CSSProperties = {
-    fontSize: '10px',
-    fontWeight: 600,
-    color: device.bank.color,
-  };
-
-  // ==============================================================================
-  // RENDER
-  // ==============================================================================
+  const bankName = device.bank?.name;
+  const showBank =
+    Boolean(bankName) && bankName !== 'Sin banco' && bankName !== 'Sin banco asignado';
 
   return (
-    <div className={`device-card ${className}`} style={cardStyle}>
-      {/* Emoji del dispositivo */}
-      <span style={emojiStyle} role="img" aria-label={categoryLabel}>
-        {emoji}
+    <div
+      className={cn(
+        'device-card flex items-start gap-2.5 font-sans',
+        detailed
+          ? 'rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3'
+          : 'rounded-lg bg-[var(--bg-tertiary)] px-2.5 py-2',
+        className,
+      )}
+    >
+      <span
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+        aria-hidden="true"
+      >
+        <Icon size={16} strokeWidth={1.75} />
       </span>
 
-      {/* Info del dispositivo */}
-      <div style={infoStyle}>
-        <span style={typeStyle} title={device.type}>
-          {device.type}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span
+          className="truncate text-xs font-semibold text-[var(--text-primary)]"
+          title={device.type}
+        >
+          {device.type || 'Dispositivo'}
         </span>
 
-        <span style={detailStyle}>
-          {device.operatingSystem}
-          {detailed && device.browser && device.browser !== 'N/D' && <> · {device.browser}</>}
+        <span className="flex flex-wrap items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+          <span>{device.operatingSystem || '—'}</span>
+          {detailed && device.browser && device.browser !== 'N/D' && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{device.browser}</span>
+            </>
+          )}
         </span>
 
         {detailed && (
           <>
-            <span style={detailStyle}>
-              {categoryLabel}
-              {device.lastUsedAt && <> · Último uso: {formatDate(device.lastUsedAt)}</>}
+            <span className="flex flex-wrap items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+              <span>{categoryLabel}</span>
+              {device.lastUsedAt && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>Último uso: {formatDate(device.lastUsedAt)}</span>
+                </>
+              )}
             </span>
 
-            {device.bank.name && device.bank.name !== 'Sin banco' && (
-              <span style={bankStyle}>{device.bank.name}</span>
+            {showBank && (
+              <span
+                className="text-[10px] font-semibold"
+                style={{ color: device.bank.color || 'var(--text-secondary)' }}
+              >
+                {bankName}
+              </span>
+            )}
+
+            {device.clientName && (
+              <span className="truncate text-[10px] text-[var(--text-secondary)]">
+                {device.clientName}
+              </span>
             )}
           </>
         )}

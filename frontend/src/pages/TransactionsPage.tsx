@@ -1,21 +1,15 @@
 // ¿Qué? Página de transacciones bancarias del sistema TriDa.
-// ¿Para qué? Reemplazar transactions.jsx con una versión modular que usa el hook
-//            useTransactions (con filtros, sort y paginación integrados) y
-//            TransactionDetail para el panel lateral.
-// ¿Impacto? Se accede en /transactions. Los analistas pueden buscar, filtrar,
-//           ordenar y exportar transacciones del sistema.
+// ¿Para qué? Buscar, filtrar, ordenar y exportar transacciones.
+// ¿Impacto? Skeletons de carga integrados + Exportación a PDF real (asíncrona).
 
 import { useCallback, useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { useBank } from '@context/BankContext';
 import { useTransactions } from '@hooks/useTransactions';
-import { Spinner } from '@components/ui/Spinner';
-import { EmptyState } from '@components/ui/EmptyState';
-import { Button } from '@components/ui/Button';
+import { Button, EmptyState, Skeleton } from '@components/ui';
 import { SearchInput } from '@components/shared/SearchInput';
 import { FilterChip } from '@components/shared/FilterChip';
-import { DataTable } from '@components/shared/DataTable';
-import type { DataTableColumn } from '@components/shared/DataTable';
+import { DataTable, type DataTableColumn } from '@components/shared/DataTable';
 import { Pagination } from '@components/shared/Pagination';
 import { DetailPanel } from '@components/shared/DetailPanel';
 import { ExportButton } from '@components/shared/ExportButton';
@@ -26,28 +20,19 @@ import { StatusBadge } from '@components/shared/StatusBadge';
 import { TransactionDetail } from '@components/transactions';
 import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
 import { formatCurrency, formatTime } from '@utils/Formatters';
-import { exportData, buildExportPreview } from '@utils/Export';
-import type { ExportColumn } from '@utils/Export';
+import { exportData, buildExportPreview, type ExportColumn } from '@utils/Export';
 import { countByRiskLevel } from '@utils/Risk';
 import type { Transaction, ExportMetadata, TransactionSortField } from '@app-types';
-
-// ==============================================================================
-// CONSTANTES
-// ==============================================================================
 
 const LEVEL_ORDER: RiskLevel[] = ['critical', 'high', 'medium', 'low'];
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todos' },
-  { value: 'approved', label: '✅ Aprobadas' },
-  { value: 'flagged', label: '⚠️ Marcadas' },
-  { value: 'blocked', label: '🚫 Bloqueadas' },
-  { value: 'pending', label: '⏱ Pendientes' },
+  { value: 'approved', label: 'Aprobadas' },
+  { value: 'flagged', label: 'Marcadas' },
+  { value: 'blocked', label: 'Bloqueadas' },
+  { value: 'pending', label: 'Pendientes' },
 ] as const;
-
-// ==============================================================================
-// COLUMNAS DE LA TABLA
-// ==============================================================================
 
 const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
   {
@@ -55,7 +40,9 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     label: 'ID',
     sortable: true,
     width: '90px',
-    render: (tx) => <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{tx.id}</span>,
+    render: (tx) => (
+      <span className="font-mono text-[11px] font-bold text-[var(--text-secondary)]">{tx.id}</span>
+    ),
   },
   {
     key: 'timestamp',
@@ -63,15 +50,13 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     sortable: true,
     width: '80px',
     sortAccessor: (tx) => (tx.timestamp ? new Date(tx.timestamp) : null),
-    render: (tx) => (
-      <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{formatTime(tx.timestamp)}</span>
-    ),
+    render: (tx) => <span className="font-mono text-[11px]">{formatTime(tx.timestamp)}</span>,
   },
   {
     key: 'user',
     label: 'Usuario',
     sortable: true,
-    render: (tx) => <span style={{ fontWeight: 600 }}>{tx.user}</span>,
+    render: (tx) => <span className="font-semibold">{tx.user}</span>,
   },
   {
     key: 'bank',
@@ -90,7 +75,9 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     align: 'right',
     sortAccessor: (tx) => tx.amount,
     render: (tx) => (
-      <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(tx.amount)}</span>
+      <span className="font-mono font-bold tabular-nums text-[var(--text-primary)]">
+        {formatCurrency(tx.amount)}
+      </span>
     ),
   },
   {
@@ -104,7 +91,7 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
   {
     key: 'location',
     label: 'Ciudad',
-    render: (tx) => tx.location.city,
+    render: (tx) => tx.location?.city ?? '—',
   },
   {
     key: 'status',
@@ -113,10 +100,6 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     render: (tx) => <StatusBadge type="transaction" status={tx.status} size="sm" />,
   },
 ];
-
-// ==============================================================================
-// COLUMNAS DE EXPORTACIÓN
-// ==============================================================================
 
 const EXPORT_COLUMNS: ExportColumn<Transaction>[] = [
   { header: 'ID', accessor: (t) => t.id },
@@ -134,30 +117,12 @@ const EXPORT_COLUMNS: ExportColumn<Transaction>[] = [
   { header: 'Latencia(ms)', accessor: (t) => t.processingTime },
 ];
 
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
-
-/**
- * Página de transacciones bancarias.
- *
- * @example
- * <Route path="/transactions" element={<TransactionsPage />} />
- */
 export function TransactionsPage() {
   const { selectedBank } = useBank();
-
-  // ==============================================================================
-  // METADATA
-  // ==============================================================================
 
   useEffect(() => {
     document.title = 'Transacciones — TriDa';
   }, []);
-
-  // ==============================================================================
-  // DATOS — useTransactions con filtros, sort y paginación integrados
-  // ==============================================================================
 
   const {
     transactions,
@@ -179,15 +144,7 @@ export function TransactionsPage() {
     setSelected,
   } = useTransactions(selectedBank);
 
-  // ==============================================================================
-  // ESTADO LOCAL — Export preview
-  // ==============================================================================
-
   const [exportPreview, setExportPreview] = useState<ExportMetadata | null>(null);
-
-  // ==============================================================================
-  // VALORES DERIVADOS
-  // ==============================================================================
 
   const levelCounts = countByRiskLevel(allTransactions);
   const hasActiveFilters =
@@ -196,18 +153,23 @@ export function TransactionsPage() {
     (filters.search && filters.search.trim() !== '');
 
   // ==============================================================================
-  // HANDLERS
+  // EXPORTACIÓN ASÍNCRONA (NUEVO)
   // ==============================================================================
 
   const handleExport = useCallback(
-    (format: 'csv' | 'pdf' | 'json' | 'xlsx'): void => {
-      exportData({
-        format,
-        data: filteredTransactions,
-        columns: EXPORT_COLUMNS,
-        filenamePrefix: 'transacciones_trida',
-        title: 'TRANSACCIONES — TriDa Sistema Antifraude',
-      });
+    async (format: 'csv' | 'pdf' | 'json' | 'xlsx'): Promise<void> => {
+      try {
+        await exportData({
+          format,
+          data: filteredTransactions,
+          columns: EXPORT_COLUMNS,
+          filenamePrefix: 'transacciones_trida',
+          title: 'TRANSACCIONES — TriDa Sistema Antifraude',
+          pdfRowLimit: 500, // Previene colgar el navegador con PDFs gigantes
+        });
+      } catch (err) {
+        console.error('Error al exportar:', err);
+      }
     },
     [filteredTransactions],
   );
@@ -221,93 +183,26 @@ export function TransactionsPage() {
   );
 
   // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const pageStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    padding: '24px',
-    minHeight: '100vh',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '16px',
-    flexWrap: 'wrap',
-  };
-
-  const headerLeftStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: 'var(--text-primary)',
-    margin: 0,
-    letterSpacing: '-0.02em',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    margin: 0,
-  };
-
-  const filtersRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-  };
-
-  const filterGroupStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    flexWrap: 'wrap',
-  };
-
-  const filterLabelStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 600,
-    color: 'var(--text-tertiary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  };
-
-  const bodyStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '16px',
-    flex: 1,
-  };
-
-  const tableContainerStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  };
-
-  // ==============================================================================
-  // RENDER — LOADING
+  // RENDER — LOADING SKELETONS
   // ==============================================================================
 
   if (loading) {
     return (
-      <div style={pageStyle}>
-        <Spinner size="lg" label="Cargando transacciones..." centered />
+      <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </header>
+        <div className="flex gap-4 border-b border-[var(--border)] pb-4">
+          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-8 w-24 rounded-full" />
+        </div>
+        <Skeleton className="h-10 w-full max-w-sm rounded-lg" />
+        <Skeleton className="h-[400px] w-full rounded-xl" />
       </div>
     );
   }
@@ -318,7 +213,7 @@ export function TransactionsPage() {
 
   if (error) {
     return (
-      <div style={pageStyle}>
+      <div className="flex min-h-screen flex-col gap-4 p-6 font-sans md:p-8">
         <EmptyState
           preset="error"
           description={error}
@@ -333,27 +228,23 @@ export function TransactionsPage() {
   }
 
   // ==============================================================================
-  // RENDER — PÁGINA
+  // RENDER — PAGE
   // ==============================================================================
 
   return (
-    <div style={pageStyle}>
-      {/* ================================================================
-          HEADER
-          ================================================================ */}
-
-      <header style={headerStyle}>
-        <div style={headerLeftStyle}>
-          <h1 style={titleStyle}>
-            <Activity size={24} />
+    <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
+      {/* HEADER */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+            <Activity size={24} aria-hidden />
             Transacciones
           </h1>
-          <p style={subtitleStyle}>
+          <p className="m-0 text-[13px] text-[var(--text-secondary)]">
             {totalCount.toLocaleString('es-CO')} registros
             {totalPages > 1 && ` · Página ${page + 1} de ${totalPages}`}
           </p>
         </div>
-
         <ExportButton
           onExport={handleExport}
           onPreview={handlePreview}
@@ -361,14 +252,12 @@ export function TransactionsPage() {
         />
       </header>
 
-      {/* ================================================================
-          FILTROS — Nivel + Estado
-          ================================================================ */}
-
-      <div style={filtersRowStyle}>
-        {/* Filtro por nivel */}
-        <div style={filterGroupStyle}>
-          <span style={filterLabelStyle}>Nivel:</span>
+      {/* FILTROS */}
+      <div className="flex flex-wrap items-center gap-4 border-b border-[var(--border)] pb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+            Nivel:
+          </span>
           <FilterChip
             label="Todos"
             count={allTransactions.length}
@@ -387,9 +276,10 @@ export function TransactionsPage() {
           ))}
         </div>
 
-        {/* Filtro por estado */}
-        <div style={filterGroupStyle}>
-          <span style={filterLabelStyle}>Estado:</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+            Estado:
+          </span>
           {STATUS_FILTERS.map((sf) => (
             <FilterChip
               key={sf.value}
@@ -400,7 +290,6 @@ export function TransactionsPage() {
           ))}
         </div>
 
-        {/* Limpiar filtros */}
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
             Limpiar filtros
@@ -408,7 +297,6 @@ export function TransactionsPage() {
         )}
       </div>
 
-      {/* Búsqueda */}
       <SearchInput
         value={filters.search ?? ''}
         onChange={(val) => setFilters({ search: val })}
@@ -416,29 +304,26 @@ export function TransactionsPage() {
         placeholder="Buscar por ID, usuario, banco, ciudad, tipo..."
       />
 
-      {/* ================================================================
-          BODY — Tabla + Panel de detalle
-          ================================================================ */}
-
-      <div style={bodyStyle}>
-        <div style={tableContainerStyle}>
+      {/* CUERPO: Tabla + Panel */}
+      <div className="flex flex-1 gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           {filteredTransactions.length === 0 ? (
-            allTransactions.length === 0 ? (
-              <EmptyState
-                preset="no-data"
-                title="Sin transacciones"
-                description="No se encontraron transacciones para el banco seleccionado."
-              />
-            ) : (
-              <EmptyState
-                preset="no-results"
-                action={
+            <EmptyState
+              preset={allTransactions.length === 0 ? 'no-data' : 'no-results'}
+              title={allTransactions.length === 0 ? 'Sin transacciones' : undefined}
+              description={
+                allTransactions.length === 0
+                  ? 'No se encontraron transacciones para el banco seleccionado.'
+                  : undefined
+              }
+              action={
+                allTransactions.length > 0 ? (
                   <Button variant="ghost" onClick={clearFilters}>
                     Limpiar filtros
                   </Button>
-                }
-              />
-            )
+                ) : undefined
+              }
+            />
           ) : (
             <>
               <DataTable<Transaction>
@@ -450,7 +335,6 @@ export function TransactionsPage() {
                 onRowClick={setSelected}
                 hoverable
               />
-
               <Pagination
                 page={page}
                 totalPages={totalPages}
@@ -462,7 +346,6 @@ export function TransactionsPage() {
           )}
         </div>
 
-        {/* Panel de detalle — usa TransactionDetail */}
         <DetailPanel
           open={selected !== null}
           onClose={() => setSelected(null)}
@@ -474,16 +357,12 @@ export function TransactionsPage() {
         </DetailPanel>
       </div>
 
-      {/* ================================================================
-          MODAL DE PREVIEW
-          ================================================================ */}
-
       <ExportPreviewModal<Transaction>
         open={exportPreview !== null}
         onClose={() => setExportPreview(null)}
         preview={exportPreview}
-        onDownload={(format) => {
-          handleExport(format);
+        onDownload={async (format) => {
+          await handleExport(format);
           setExportPreview(null);
         }}
         columns={TABLE_COLUMNS}

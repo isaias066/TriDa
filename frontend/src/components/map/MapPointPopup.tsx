@@ -1,153 +1,130 @@
-// ¿Qué? Contenido del popup que aparece al hacer click en un marcador del mapa.
-// ¿Para qué? Reemplazar el markup inline que estaba dentro de cada <Popup> en
-//            transactionmap.jsx con un componente tipado y reutilizable.
-// ¿Impacto? Se usa dentro de MapPointMarker para mostrar info de la transacción.
+// ¿Qué? Contenido del popup de un marcador del mapa.
+// ¿Para qué? Info de la TX con tema oscuro forzado (no depende de .dark del HTML).
+// ¿Impacto? Se renderiza dentro del Popup de Leaflet en MapPointMarker.
 
 import { RISK_COLORS, type RiskLevel } from '@constants/Risk';
 import { formatCurrency } from '@utils/Formatters';
 import type { TransactionMapPoint } from '@app-types';
-
-// ==============================================================================
-// TYPES
-// ==============================================================================
 
 export interface MapPointPopupProps {
   point: TransactionMapPoint;
   className?: string;
 }
 
-// ==============================================================================
-// HELPERS
-// ==============================================================================
-
-/**
- * Obtiene el label de estado legible en español.
- */
 function getStatusLabel(status: string): string {
   switch (status) {
     case 'blocked':
-      return '🚫 Bloqueada';
+      return 'Bloqueada';
     case 'flagged':
-      return '⚠️ Marcada';
+      return 'Alertada';
     case 'pending':
-      return '⏱ Pendiente';
+      return 'Pendiente';
     default:
-      return '✅ Aprobada';
+      return 'Aprobada';
   }
 }
 
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
-
 export function MapPointPopup({ point, className = '' }: MapPointPopupProps) {
   const color = RISK_COLORS[point.alertLevel as RiskLevel] ?? '#6366F1';
-
-  // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const wrapperStyle: React.CSSProperties = {
-    fontFamily: 'Inter, sans-serif',
-    fontSize: '12px',
-    minWidth: '220px',
-    maxWidth: '280px',
-    padding: '4px',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '8px',
-    paddingBottom: '8px',
-    marginBottom: '8px',
-    borderBottom: '1px solid rgba(0,0,0,0.1)',
-  };
-
-  const idStyle: React.CSSProperties = {
-    fontFamily: 'monospace',
-    fontWeight: 700,
-    fontSize: '12px',
-    color: '#1F2937',
-  };
-
-  const scoreStyle: React.CSSProperties = {
-    fontWeight: 800,
-    fontSize: '13px',
-    color: color,
-  };
-
-  const rowStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '3px 0',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: '11px',
-    color: '#6B7280',
-    fontWeight: 500,
-  };
-
-  const valueStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 600,
-    color: '#1F2937',
-    textAlign: 'right',
-  };
-
-  // ==============================================================================
-  // RENDER
-  // ==============================================================================
+  const statusLabel = getStatusLabel(point.status);
 
   return (
-    <div className={`map-point-popup ${className}`} style={wrapperStyle}>
-      {/* Header: ID + Score */}
-      <div style={headerStyle}>
-        <span style={idStyle}>{point.id}</span>
-        <span style={scoreStyle}>{point.riskScore}%</span>
-      </div>
-
-      {/* Filas de datos */}
-      <div style={rowStyle}>
-        <span style={labelStyle}>Usuario</span>
-        <span style={valueStyle}>{point.user}</span>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Banco</span>
-        <span style={{ ...valueStyle, color: point.bank.color }}>{point.bank.name}</span>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Tipo</span>
-        <span style={valueStyle}>{point.type}</span>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Monto</span>
-        <span style={{ ...valueStyle, fontFamily: 'monospace' }}>
-          {formatCurrency(point.amount, point.currency)}
+    <div
+      className={`w-[248px] select-none font-sans leading-relaxed ${className}`}
+      style={{
+        // Fondo oscuro forzado por si el wrapper de Leaflet falla
+        background: '#0f172a',
+        color: '#e2e8f0',
+        borderRadius: 10,
+        padding: 4,
+      }}
+    >
+      {/* Header */}
+      <div
+        className="mb-2 flex items-center justify-between pb-2"
+        style={{ borderBottom: '1px solid rgba(51,65,85,0.7)' }}
+      >
+        <span className="font-mono text-xs font-bold tracking-wide" style={{ color: '#cbd5e1' }}>
+          TXID-{String(point.id).slice(0, 8).toUpperCase()}
         </span>
+
+        <div
+          className="flex items-center gap-1.5 rounded-md px-2 py-0.5"
+          style={{
+            background: 'rgba(2,6,23,0.6)',
+            border: '1px solid rgba(51,65,85,0.8)',
+          }}
+        >
+          <span className="text-[10px] font-bold uppercase" style={{ color: '#64748b' }}>
+            Riesgo
+          </span>
+          <span className="text-xs font-black" style={{ color }}>
+            {point.riskScore}%
+          </span>
+        </div>
       </div>
 
-      <div style={rowStyle}>
-        <span style={labelStyle}>Ciudad</span>
-        <span style={valueStyle}>{point.location.city}</span>
-      </div>
+      {/* Filas */}
+      <div className="space-y-1.5">
+        <Row label="Cliente" value={point.user} />
+        <Row label="Banco Emisor" value={point.bank.name} valueColor={point.bank.color} bold />
+        <Row label="Operación" value={point.type} pill />
+        <Row
+          label="Valor transado"
+          value={formatCurrency(point.amount, point.currency)}
+          valueColor="#34d399"
+          mono
+        />
+        <Row label="Ubicación" value={point.location.city} />
+        <Row label="Canal de Acceso" value={String(point.channel).toUpperCase()} pill />
 
-      <div style={rowStyle}>
-        <span style={labelStyle}>Canal</span>
-        <span style={valueStyle}>{point.channel}</span>
+        <div
+          className="mt-1 flex items-center justify-between pt-1.5 text-[11px]"
+          style={{ borderTop: '1px solid rgba(51,65,85,0.45)' }}
+        >
+          <span style={{ color: '#94a3b8', fontWeight: 500 }}>Estado</span>
+          <span style={{ color, fontWeight: 700 }}>{statusLabel}</span>
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <div style={rowStyle}>
-        <span style={labelStyle}>Estado</span>
-        <span style={{ ...valueStyle, color }}>{getStatusLabel(point.status)}</span>
-      </div>
+function Row({
+  label,
+  value,
+  valueColor = '#f1f5f9',
+  bold = false,
+  mono = false,
+  pill = false,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+  bold?: boolean;
+  mono?: boolean;
+  pill?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-[11px]">
+      <span style={{ color: '#94a3b8', fontWeight: 500 }}>{label}</span>
+      <span
+        className={`max-w-[150px] truncate text-right ${mono ? 'font-mono' : ''}`}
+        style={{
+          color: valueColor,
+          fontWeight: bold ? 700 : 600,
+          ...(pill
+            ? {
+                background: 'rgba(30,41,59,0.9)',
+                borderRadius: 4,
+                padding: '1px 6px',
+                fontSize: 10,
+              }
+            : {}),
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

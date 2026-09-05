@@ -22,6 +22,8 @@ export type { UseClockOptions, FormattedClock } from './useClock';
 export { usePagination } from './usePagination';
 export type { UsePaginationOptions, UsePaginationResult, PageRange } from './usePagination';
 
+export { useNotificationPrefs } from './useNotificationPrefs';
+
 // ==============================================================================
 // HOOKS DE DATOS (fetch + estado)
 // ==============================================================================

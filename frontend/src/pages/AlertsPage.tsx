@@ -1,8 +1,6 @@
 // ¿Qué? Página del centro de alertas de fraude del sistema TriDa.
-// ¿Para qué? Reemplazar alerts.jsx con una versión modular que usa los hooks,
-//            componentes shared y capa API que ya creamos.
-// ¿Impacto? Se accede en /alerts. Es la página principal donde los analistas
-//           revisan, filtran y gestionan las alertas generadas por el modelo IA.
+// ¿Para qué? Revisar, filtrar, gestionar y exportar alertas generadas por IA.
+// ¿Impacto? Skeletons de carga integrados + Exportación a PDF real (asíncrona).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -11,13 +9,10 @@ import { useBank } from '@context/BankContext';
 import { useAlerts } from '@hooks/useAlerts';
 import { useDebounce } from '@hooks/useDebounce';
 import { usePagination } from '@hooks/usePagination';
-import { Spinner } from '@components/ui/Spinner';
-import { EmptyState } from '@components/ui/EmptyState';
-import { Button } from '@components/ui/Button';
+import { Button, EmptyState, Skeleton } from '@components/ui';
 import { SearchInput } from '@components/shared/SearchInput';
 import { FilterChip } from '@components/shared/FilterChip';
-import { DataTable } from '@components/shared/DataTable';
-import type { DataTableColumn, SortConfig } from '@components/shared/DataTable';
+import { DataTable, type DataTableColumn, type SortConfig } from '@components/shared/DataTable';
 import { Pagination } from '@components/shared/Pagination';
 import { DetailPanel } from '@components/shared/DetailPanel';
 import { ExportButton } from '@components/shared/ExportButton';
@@ -28,25 +23,16 @@ import { StatusBadge } from '@components/shared/StatusBadge';
 import { AlertDetail } from '@components/alerts';
 import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
 import { formatCurrency, formatDateTime, formatTime } from '@utils/Formatters';
-import { exportData, buildExportPreview } from '@utils/Export';
-import type { ExportColumn } from '@utils/Export';
+import { exportData, buildExportPreview, type ExportColumn } from '@utils/Export';
 import type { Alert, ExportMetadata } from '@app-types';
-
-// ==============================================================================
-// CONSTANTES
-// ==============================================================================
 
 const LEVEL_ORDER: RiskLevel[] = ['critical', 'high', 'medium', 'low'];
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todas' },
-  { value: 'blocked', label: '🚫 Bloqueadas' },
-  { value: 'flagged', label: '⚠️ Marcadas' },
+  { value: 'blocked', label: 'Bloqueadas' },
+  { value: 'flagged', label: 'Marcadas' },
 ] as const;
-
-// ==============================================================================
-// COLUMNAS DE LA TABLA
-// ==============================================================================
 
 const TABLE_COLUMNS: DataTableColumn<Alert>[] = [
   {
@@ -54,8 +40,8 @@ const TABLE_COLUMNS: DataTableColumn<Alert>[] = [
     label: 'ID',
     sortable: true,
     width: '80px',
-    render: (alert) => (
-      <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>{alert.id}</span>
+    render: (a) => (
+      <span className="font-mono text-[11px] font-bold text-[var(--text-secondary)]">{a.id}</span>
     ),
   },
   {
@@ -63,38 +49,34 @@ const TABLE_COLUMNS: DataTableColumn<Alert>[] = [
     label: 'Hora',
     sortable: true,
     width: '80px',
-    sortAccessor: (alert) => (alert.timestamp ? new Date(alert.timestamp) : null),
-    render: (alert) => (
-      <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>
-        {formatTime(alert.timestamp)}
-      </span>
-    ),
+    sortAccessor: (a) => (a.timestamp ? new Date(a.timestamp) : null),
+    render: (a) => <span className="font-mono text-[11px]">{formatTime(a.timestamp)}</span>,
   },
   {
     key: 'user',
     label: 'Usuario',
     sortable: true,
-    render: (alert) => <span style={{ fontWeight: 600 }}>{alert.user}</span>,
+    render: (a) => <span className="font-semibold">{a.user}</span>,
   },
   {
     key: 'bank',
     label: 'Banco',
-    render: (alert) => <BankBadge bank={alert.bank} size="sm" />,
+    render: (a) => <BankBadge bank={a.bank} size="sm" />,
   },
   {
     key: 'type',
     label: 'Tipo',
-    render: (alert) => alert.type,
+    render: (a) => a.type,
   },
   {
     key: 'amount',
     label: 'Monto',
     sortable: true,
     align: 'right',
-    sortAccessor: (alert) => alert.amount,
-    render: (alert) => (
-      <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-        {formatCurrency(alert.amount)}
+    sortAccessor: (a) => a.amount,
+    render: (a) => (
+      <span className="font-mono font-bold tabular-nums text-[var(--text-primary)]">
+        {formatCurrency(a.amount)}
       </span>
     ),
   },
@@ -103,25 +85,21 @@ const TABLE_COLUMNS: DataTableColumn<Alert>[] = [
     label: 'Riesgo',
     sortable: true,
     align: 'center',
-    sortAccessor: (alert) => alert.riskScore,
-    render: (alert) => <RiskBadge score={alert.riskScore} size="sm" />,
+    sortAccessor: (a) => a.riskScore,
+    render: (a) => <RiskBadge score={a.riskScore} size="sm" />,
   },
   {
     key: 'location',
     label: 'Ciudad',
-    render: (alert) => alert.location.city,
+    render: (a) => a.location?.city ?? '—',
   },
   {
     key: 'status',
     label: 'Estado',
     align: 'center',
-    render: (alert) => <StatusBadge type="transaction" status={alert.status} size="sm" />,
+    render: (a) => <StatusBadge type="transaction" status={a.status} size="sm" />,
   },
 ];
-
-// ==============================================================================
-// COLUMNAS DE EXPORTACIÓN
-// ==============================================================================
 
 const EXPORT_COLUMNS: ExportColumn<Alert>[] = [
   { header: 'ID', accessor: (a) => a.id },
@@ -137,31 +115,15 @@ const EXPORT_COLUMNS: ExportColumn<Alert>[] = [
   { header: 'Estado', accessor: (a) => a.status },
 ];
 
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
-
 export function AlertsPage() {
   const [searchParams] = useSearchParams();
   const { selectedBank } = useBank();
-
-  // ==============================================================================
-  // METADATA
-  // ==============================================================================
 
   useEffect(() => {
     document.title = 'Alertas — TriDa';
   }, []);
 
-  // ==============================================================================
-  // DATOS
-  // ==============================================================================
-
   const { alerts, loading, error, counts, refetch } = useAlerts(selectedBank);
-
-  // ==============================================================================
-  // ESTADO LOCAL
-  // ==============================================================================
 
   const initialLevel = (searchParams.get('level') as RiskLevel | null) ?? 'all';
   const [filterLevel, setFilterLevel] = useState<RiskLevel | 'all'>(initialLevel);
@@ -169,29 +131,14 @@ export function AlertsPage() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
 
-  const [sort, setSort] = useState<SortConfig<Alert>>({
-    field: 'timestamp',
-    direction: 'desc',
-  });
-
+  const [sort, setSort] = useState<SortConfig<Alert>>({ field: 'timestamp', direction: 'desc' });
   const [selected, setSelected] = useState<Alert | null>(null);
   const [exportPreview, setExportPreview] = useState<ExportMetadata | null>(null);
 
-  // ==============================================================================
-  // FILTRADO
-  // ==============================================================================
-
   const filteredAlerts = useMemo(() => {
     let result = alerts;
-
-    if (filterLevel !== 'all') {
-      result = result.filter((a) => a.alertLevel === filterLevel);
-    }
-
-    if (filterStatus !== 'all') {
-      result = result.filter((a) => a.status === filterStatus);
-    }
-
+    if (filterLevel !== 'all') result = result.filter((a) => a.alertLevel === filterLevel);
+    if (filterStatus !== 'all') result = result.filter((a) => a.status === filterStatus);
     if (debouncedSearch.trim()) {
       const query = debouncedSearch.toLowerCase();
       result = result.filter(
@@ -203,13 +150,8 @@ export function AlertsPage() {
           a.type.toLowerCase().includes(query),
       );
     }
-
     return result;
   }, [alerts, filterLevel, filterStatus, debouncedSearch]);
-
-  // ==============================================================================
-  // PAGINACIÓN
-  // ==============================================================================
 
   const {
     items: pagedAlerts,
@@ -220,11 +162,7 @@ export function AlertsPage() {
     goToPage,
   } = usePagination(filteredAlerts, { pageSize: 30 });
 
-  // ==============================================================================
-  // HANDLERS
-  // ==============================================================================
-
-  const handleClearFilters = useCallback((): void => {
+  const handleClearFilters = useCallback(() => {
     setFilterLevel('all');
     setFilterStatus('all');
     setSearch('');
@@ -232,15 +170,24 @@ export function AlertsPage() {
 
   const hasActiveFilters = filterLevel !== 'all' || filterStatus !== 'all' || search.trim() !== '';
 
+  // ==============================================================================
+  // EXPORTACIÓN ASÍNCRONA (NUEVO)
+  // ==============================================================================
+
   const handleExport = useCallback(
-    (format: 'csv' | 'pdf' | 'json' | 'xlsx'): void => {
-      exportData({
-        format,
-        data: filteredAlerts,
-        columns: EXPORT_COLUMNS,
-        filenamePrefix: 'alertas_trida',
-        title: 'ALERTAS — TriDa Sistema Antifraude',
-      });
+    async (format: 'csv' | 'pdf' | 'json' | 'xlsx'): Promise<void> => {
+      try {
+        await exportData({
+          format,
+          data: filteredAlerts, // Corregido: antes decía filteredTransactions
+          columns: EXPORT_COLUMNS,
+          filenamePrefix: 'alertas_trida',
+          title: 'ALERTAS — TriDa Sistema Antifraude',
+          pdfRowLimit: 500, // Previene colgar el navegador con PDFs gigantes
+        });
+      } catch (err) {
+        console.error('Error al exportar:', err);
+      }
     },
     [filteredAlerts],
   );
@@ -254,106 +201,25 @@ export function AlertsPage() {
   );
 
   // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const pageStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-    padding: '24px',
-    minHeight: '100vh',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '16px',
-    flexWrap: 'wrap',
-  };
-
-  const headerLeftStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: 'var(--text-primary)',
-    margin: 0,
-    letterSpacing: '-0.02em',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    margin: 0,
-  };
-
-  const headerRightStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  };
-
-  const summaryStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexWrap: 'wrap',
-  };
-
-  const filtersRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    flexWrap: 'wrap',
-  };
-
-  const filterGroupStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    flexWrap: 'wrap',
-  };
-
-  const filterLabelStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 600,
-    color: 'var(--text-tertiary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  };
-
-  const bodyStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '16px',
-    flex: 1,
-  };
-
-  const tableContainerStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  };
-
-  // ==============================================================================
-  // RENDER — LOADING
+  // RENDER — LOADING SKELETONS
   // ==============================================================================
 
   if (loading) {
     return (
-      <div style={pageStyle}>
-        <Spinner size="lg" label="Cargando alertas..." centered />
+      <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </header>
+        <div className="flex gap-4 border-b border-[var(--border)] pb-4">
+          <Skeleton className="h-8 w-24 rounded-full" />
+          <Skeleton className="h-8 w-24 rounded-full" />
+        </div>
+        <Skeleton className="h-10 w-full max-w-sm rounded-lg" />
+        <Skeleton className="h-[400px] w-full rounded-xl" />
       </div>
     );
   }
@@ -364,7 +230,7 @@ export function AlertsPage() {
 
   if (error) {
     return (
-      <div style={pageStyle}>
+      <div className="flex min-h-screen flex-col gap-4 p-6 font-sans md:p-8">
         <EmptyState
           preset="error"
           description={error}
@@ -379,37 +245,34 @@ export function AlertsPage() {
   }
 
   // ==============================================================================
-  // RENDER — PÁGINA
+  // RENDER — PAGE
   // ==============================================================================
 
   return (
-    <div style={pageStyle}>
-      {/* ================================================================
-          HEADER
-          ================================================================ */}
-
-      <header style={headerStyle}>
-        <div style={headerLeftStyle}>
-          <h1 style={titleStyle}>
+    <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
+      {/* HEADER */}
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
             <ShieldAlert size={24} />
             Centro de Alertas
           </h1>
-          <p style={subtitleStyle}>Gestión de alertas de fraude detectadas por el modelo de IA</p>
+          <p className="m-0 text-[13px] text-[var(--text-secondary)]">
+            Gestión de alertas de fraude detectadas por IA
+          </p>
         </div>
 
-        <div style={headerRightStyle}>
-          <div style={summaryStyle}>
+        <div className="flex items-center gap-4">
+          <div className="hidden items-center gap-3 sm:flex">
             <RiskBadge level="critical" mode="level" size="sm" pulse={counts.critical > 0} />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: RISK_COLORS.critical }}>
+            <span className="text-xs font-bold" style={{ color: RISK_COLORS.critical }}>
               {counts.critical}
             </span>
-
             <RiskBadge level="high" mode="level" size="sm" />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: RISK_COLORS.high }}>
+            <span className="text-xs font-bold" style={{ color: RISK_COLORS.high }}>
               {counts.high}
             </span>
           </div>
-
           <ExportButton
             onExport={handleExport}
             onPreview={handlePreview}
@@ -418,13 +281,12 @@ export function AlertsPage() {
         </div>
       </header>
 
-      {/* ================================================================
-          FILTROS
-          ================================================================ */}
-
-      <div style={filtersRowStyle}>
-        <div style={filterGroupStyle}>
-          <span style={filterLabelStyle}>Nivel:</span>
+      {/* FILTROS */}
+      <div className="flex flex-wrap items-center gap-4 border-b border-[var(--border)] pb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+            Nivel:
+          </span>
           <FilterChip
             label="Todas"
             count={alerts.length}
@@ -443,8 +305,10 @@ export function AlertsPage() {
           ))}
         </div>
 
-        <div style={filterGroupStyle}>
-          <span style={filterLabelStyle}>Estado:</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+            Estado:
+          </span>
           {STATUS_FILTERS.map((sf) => (
             <FilterChip
               key={sf.value}
@@ -469,31 +333,26 @@ export function AlertsPage() {
         placeholder="Buscar por ID, usuario, banco, ciudad..."
       />
 
-      {/* ================================================================
-          BODY — Tabla + Panel de detalle
-          ================================================================ */}
-
-      <div style={bodyStyle}>
-        <div style={tableContainerStyle}>
+      {/* CUERPO: Tabla + Panel */}
+      <div className="flex flex-1 gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           {filteredAlerts.length === 0 ? (
-            alerts.length === 0 ? (
-              <EmptyState preset="no-alerts" />
-            ) : (
-              <EmptyState
-                preset="no-results"
-                action={
+            <EmptyState
+              preset={alerts.length === 0 ? 'no-alerts' : 'no-results'}
+              action={
+                alerts.length > 0 ? (
                   <Button variant="ghost" onClick={handleClearFilters}>
                     Limpiar filtros
                   </Button>
-                }
-              />
-            )
+                ) : undefined
+              }
+            />
           ) : (
             <>
               <DataTable<Alert>
                 data={pagedAlerts}
                 columns={TABLE_COLUMNS}
-                getRowKey={(alert) => alert.id}
+                getRowKey={(a) => a.id}
                 sort={sort}
                 onSortChange={setSort}
                 autoSort
@@ -501,7 +360,6 @@ export function AlertsPage() {
                 onRowClick={setSelected}
                 hoverable
               />
-
               <Pagination
                 page={page}
                 totalPages={totalPages}
@@ -513,7 +371,6 @@ export function AlertsPage() {
           )}
         </div>
 
-        {/* Panel de detalle — usa AlertDetail */}
         <DetailPanel
           open={selected !== null}
           onClose={() => setSelected(null)}
@@ -524,16 +381,12 @@ export function AlertsPage() {
         </DetailPanel>
       </div>
 
-      {/* ================================================================
-          MODAL DE PREVIEW
-          ================================================================ */}
-
       <ExportPreviewModal<Alert>
         open={exportPreview !== null}
         onClose={() => setExportPreview(null)}
         preview={exportPreview}
-        onDownload={(format) => {
-          handleExport(format);
+        onDownload={async (format) => {
+          await handleExport(format);
           setExportPreview(null);
         }}
         columns={TABLE_COLUMNS}

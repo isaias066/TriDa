@@ -1,15 +1,11 @@
-// ¿Qué? Grid responsivo que organiza las StatsCards del Dashboard.
-// ¿Para qué? Encapsular la composición de las cards de métricas principales.
-// ¿Impacto? Muestra información transparente sobre el motor antifraude de 7 factores.
+// ¿Qué? Grid responsivo para organizar las métricas del Dashboard.
+// ¿Para qué? Muestra métricas clave con variantes alineadas a los niveles de riesgo de Risk.ts.
+// ¿Impacto? Utiliza variantes 'critical', 'high', 'low', 'info' alineadas a la paleta oficial.
 
 import { DollarSign, AlertTriangle, Ban, ShieldCheck, Zap } from 'lucide-react';
 import { StatsCard } from './StatsCards';
 import type { DashboardStats } from '@app-types';
 import { formatCurrency, formatPercent, formatNumber } from '@utils/Formatters';
-
-// ==============================================================================
-// TYPES
-// ==============================================================================
 
 export interface StatsCardsGridProps {
   stats: DashboardStats;
@@ -20,10 +16,6 @@ export interface StatsCardsGridProps {
   className?: string;
 }
 
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
-
 export function StatsCardsGrid({
   stats,
   isLive = false,
@@ -32,10 +24,6 @@ export function StatsCardsGrid({
   onBlockedClick,
   className = '',
 }: StatsCardsGridProps) {
-  // ==============================================================================
-  // VALORES DERIVADOS
-  // ==============================================================================
-
   const fraudDisplay =
     stats.totalFrauds > 0
       ? `${formatNumber(stats.totalFrauds)} (${formatPercent(stats.fraudRate, 1)})`
@@ -43,13 +31,9 @@ export function StatsCardsGrid({
 
   const tpsDisplay = isLive ? formatNumber(transactionsPerSecond) : '0';
 
-  // ==============================================================================
-  // RENDER
-  // ==============================================================================
-
   return (
     <div
-      className={`stats-cards-grid grid w-full grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 ${className}`}
+      className={`grid w-full grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 ${className}`}
       role="region"
       aria-label="Métricas principales del sistema"
     >
@@ -61,31 +45,31 @@ export function StatsCardsGrid({
         variant="info"
       />
 
-      {/* 2. Fraudes detectados */}
+      {/* 2. Fraudes detectados (Variante de riesgo Crítico) */}
       <StatsCard
         icon={AlertTriangle}
         value={fraudDisplay}
         label="Fraudes detectados"
-        variant="danger"
+        variant="critical"
         animated={stats.totalFrauds > 0}
         onClick={onFraudClick}
       />
 
-      {/* 3. Transacciones bloqueadas */}
+      {/* 3. Transacciones bloqueadas (Variante de riesgo Alto) */}
       <StatsCard
         icon={Ban}
         value={formatNumber(stats.totalBlocked)}
         label="Bloqueadas"
-        variant="warning"
+        variant="high"
         onClick={onBlockedClick}
       />
 
-      {/* 4. Estado del Motor Antifraude (Verídico) */}
+      {/* 4. Estado del Motor Antifraude (Verídico - Nivel Bajo / Seguro) */}
       <StatsCard
         icon={ShieldCheck}
         value="Activo"
         label="Motor Antifraude"
-        variant="success"
+        variant="low"
         subtitle="7 factores ponderados"
       />
 
@@ -94,7 +78,7 @@ export function StatsCardsGrid({
         icon={Zap}
         value={tpsDisplay}
         label="TXN/seg"
-        variant={isLive ? 'warning' : 'primary'}
+        variant={isLive ? 'medium' : 'primary'}
         animated={isLive}
         subtitle={isLive ? 'Simulado en vivo' : 'Sistema pausado'}
       />

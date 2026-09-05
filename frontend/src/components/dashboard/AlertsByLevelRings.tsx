@@ -1,10 +1,14 @@
-// ¿Qué? Barras de distribución de alertas por nivel de riesgo.
-// ¿Para qué? Mostrar de forma clara y comparable cuántas alertas hay en cada
-//            criticidad (crítico, alto, medio, bajo) dentro del Dashboard.
-// ¿Impacto? Se usa en DashboardPage; mantiene la misma API pública para no
-//           romper imports existentes (AlertsByLevelRings).
+// ¿Qué? Barras de distribución de alertas por nivel de riesgo para el Dashboard.
+// ¿Para qué? Visualizar de forma clara cuántas alertas hay en cada nivel usando la paleta canónica de Risk.ts.
+// ¿Impacto? Corrije el error de tipos TS en LevelBarProps y se sincroniza con los colores del motor de riesgo.
 
-import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
+import {
+  RISK_COLORS,
+  RISK_LEVELS,
+  RISK_LEVEL_ORDER,
+  riskColorAlpha,
+  type RiskLevel,
+} from '@constants/Risk';
 import type { AlertCriticality } from '@app-types';
 
 // ==============================================================================
@@ -19,47 +23,40 @@ export interface AlertsByLevelRingsProps {
   className?: string;
 }
 
+interface SizeConfig {
+  barHeight: string;
+  countSize: string;
+  labelSize: string;
+  gap: string;
+}
+
 // ==============================================================================
 // CONSTANTES
 // ==============================================================================
 
-const LEVEL_ORDER: RiskLevel[] = ['critical', 'high', 'medium', 'low'];
-
-const SIZE_DIMENSIONS: Record<
-  NonNullable<AlertsByLevelRingsProps['size']>,
-  {
-    barHeight: string;
-    countSize: string;
-    labelSize: string;
-    gap: string;
-    trackRadius: string;
-  }
-> = {
+const SIZE_DIMENSIONS: Record<NonNullable<AlertsByLevelRingsProps['size']>, SizeConfig> = {
   sm: {
-    barHeight: '6px',
-    countSize: '12px',
-    labelSize: '10px',
-    gap: '10px',
-    trackRadius: '9999px',
+    barHeight: 'h-1.5',
+    countSize: 'text-xs',
+    labelSize: 'text-[10px]',
+    gap: 'gap-2.5',
   },
   md: {
-    barHeight: '8px',
-    countSize: '13px',
-    labelSize: '11px',
-    gap: '14px',
-    trackRadius: '9999px',
+    barHeight: 'h-2',
+    countSize: 'text-[13px]',
+    labelSize: 'text-[11px]',
+    gap: 'gap-3.5',
   },
   lg: {
-    barHeight: '10px',
-    countSize: '15px',
-    labelSize: '12px',
-    gap: '16px',
-    trackRadius: '9999px',
+    barHeight: 'h-2.5',
+    countSize: 'text-[15px]',
+    labelSize: 'text-xs',
+    gap: 'gap-4',
   },
 };
 
 // ==============================================================================
-// COMPONENTE
+// COMPONENTE PRINCIPAL
 // ==============================================================================
 
 export function AlertsByLevelRings({
@@ -72,17 +69,16 @@ export function AlertsByLevelRings({
   const dims = SIZE_DIMENSIONS[size];
   const total = Object.values(counts).reduce((sum, c) => sum + c, 0);
   const isClickable = Boolean(onLevelClick);
-  const maxCount = Math.max(...LEVEL_ORDER.map((level) => counts[level] ?? 0), 1);
+  const maxCount = Math.max(...RISK_LEVEL_ORDER.map((level) => counts[level] ?? 0), 1);
 
   return (
     <div
-      className={`alerts-by-level-bars flex w-full flex-col font-sans ${className}`}
-      style={{ gap: dims.gap }}
+      className={`flex w-full flex-col font-sans ${dims.gap} ${className}`}
       role="group"
       aria-label="Distribución de alertas por nivel de riesgo"
     >
-      <div className="flex w-full flex-col" style={{ gap: dims.gap }}>
-        {LEVEL_ORDER.map((level) => {
+      <div className={`flex w-full flex-col ${dims.gap}`}>
+        {RISK_LEVEL_ORDER.map((level) => {
           const count = counts[level] ?? 0;
           const color = RISK_COLORS[level];
           const label = RISK_LEVELS[level].label;
@@ -129,14 +125,11 @@ interface LevelBarProps {
   label: string;
   percentOfMax: number;
   percentOfTotal: number;
-  dims: (typeof SIZE_DIMENSIONS)['md'];
+  dims: SizeConfig; // Fix de TS: Ahora acepta el objeto genérico de dimensiones
   clickable: boolean;
   onClick: () => void;
 }
 
-/**
- * Fila de nivel: label + conteo + barra proporcional al máximo del grupo.
- */
 function LevelBar({
   level,
   count,
@@ -158,7 +151,7 @@ function LevelBar({
 
   return (
     <div
-      className={`level-bar level-bar-${level} group w-full rounded-lg outline-none transition-colors duration-150 ${
+      className={`group w-full rounded-lg px-1 py-0.5 outline-none transition-colors duration-150 ${
         clickable
           ? 'cursor-pointer hover:bg-[var(--bg-tertiary)] focus-visible:bg-[var(--bg-tertiary)]'
           : ''
@@ -168,18 +161,21 @@ function LevelBar({
       role={clickable ? 'button' : 'group'}
       tabIndex={clickable ? 0 : undefined}
       aria-label={`${label}: ${count} alertas (${percentOfTotal}%)`}
+      data-level={level}
     >
-      {/* Fila superior: label + count */}
+      {/* Fila superior: punto de color + etiqueta + conteo */}
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span
             className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}66` }}
+            style={{
+              backgroundColor: color,
+              boxShadow: `0 0 8px ${riskColorAlpha(level, 0.45)}`,
+            }}
             aria-hidden="true"
           />
           <span
-            className="truncate font-semibold uppercase tracking-wide text-[var(--text-secondary)]"
-            style={{ fontSize: dims.labelSize }}
+            className={`truncate font-semibold uppercase tracking-wide text-[var(--text-secondary)] ${dims.labelSize}`}
           >
             {label}
           </span>
@@ -187,8 +183,8 @@ function LevelBar({
 
         <div className="flex shrink-0 items-baseline gap-1.5">
           <span
-            className="font-extrabold tabular-nums leading-none"
-            style={{ fontSize: dims.countSize, color }}
+            className={`font-extrabold tabular-nums leading-none ${dims.countSize}`}
+            style={{ color }}
           >
             {count.toLocaleString('es-CO')}
           </span>
@@ -198,13 +194,9 @@ function LevelBar({
         </div>
       </div>
 
-      {/* Track + fill */}
+      {/* Pista y Relleno de Barra */}
       <div
-        className="w-full overflow-hidden bg-[var(--bg-tertiary)]"
-        style={{
-          height: dims.barHeight,
-          borderRadius: dims.trackRadius,
-        }}
+        className={`w-full overflow-hidden rounded-full bg-[var(--bg-tertiary)] ${dims.barHeight}`}
         role="progressbar"
         aria-valuenow={count}
         aria-valuemin={0}
@@ -212,12 +204,11 @@ function LevelBar({
         aria-label={`Proporción ${label}`}
       >
         <div
-          className="h-full transition-[width] duration-500 ease-out"
+          className="h-full rounded-full transition-[width] duration-500 ease-out"
           style={{
             width: `${percentOfMax}%`,
-            borderRadius: dims.trackRadius,
-            background: `linear-gradient(90deg, ${color}CC 0%, ${color} 100%)`,
-            boxShadow: count > 0 ? `0 0 10px ${color}40` : 'none',
+            background: `linear-gradient(90deg, ${riskColorAlpha(level, 0.75)} 0%, ${color} 100%)`,
+            boxShadow: count > 0 ? `0 0 12px ${riskColorAlpha(level, 0.35)}` : 'none',
           }}
         />
       </div>

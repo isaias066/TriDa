@@ -1,10 +1,6 @@
 // ¿Qué? Página del mapa geográfico de transacciones en tiempo real.
-// ¿Para qué? Mostrar transacciones sobre mapa interactivo con animaciones de pulso y Skeleton de carga.
-// ¿Impacto? Se accede en /map; utiliza imports estandarizados desde @components/ui.
-
-// ¿Qué? Página del mapa geográfico de transacciones en tiempo real.
-// ¿Para qué? Mostrar transacciones sobre mapa interactivo con animaciones de pulso y Skeleton de carga.
-// ¿Impacto? Se accede en /map; utiliza imports estandarizados desde @components/ui.
+// ¿Para qué? Mapa interactivo mundial con tiles sin API key, pulsos y stats.
+// ¿Impacto? Ruta /map — arrastre, zoom y vista global habilitados.
 
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
@@ -14,12 +10,9 @@ import { useBank } from '@context/BankContext';
 import { useTheme } from '@context/ThemeContext';
 import { useMapData } from '@hooks/useMapData';
 
-// ── IMPORTS UNIFICADOS DE UI ──
 import { Button, EmptyState, Skeleton } from '@components/ui';
 import { MapPointMarker, MapPulseMarker, MapStatsOverlay } from '@components/map';
 import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
-
-// Resto del código intacto...
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -28,13 +21,16 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
 });
 
+// Tiles gratuitos sin API key (ESRI). Orden: {z}/{y}/{x}
 const TILE_URLS = {
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+  dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+  light:
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
 } as const;
 
-const DEFAULT_CENTER: [number, number] = [10, -50];
-const DEFAULT_ZOOM = 3;
+// Vista mundo completo (interactiva, como la 1ª versión)
+const DEFAULT_CENTER: [number, number] = [20, 0];
+const DEFAULT_ZOOM = 2;
 const LEGEND_LEVELS: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
 
 export function TransactionMapPage() {
@@ -116,9 +112,12 @@ export function TransactionMapPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-3">
+          <div className="mr-2 flex items-center gap-3">
             {LEGEND_LEVELS.map((level) => (
-              <div key={level} className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+              <div
+                key={level}
+                className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]"
+              >
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{
@@ -141,11 +140,11 @@ export function TransactionMapPage() {
                 : 'border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
             }`}
           >
-            {showOnlyCritical ? '🔴 Solo críticos' : 'Solo críticos'}
+            {showOnlyCritical ? 'Solo críticos' : 'Solo críticos'}
           </button>
 
           {lastUpdated && (
-            <span className="text-[10px] italic text-[var(--text-tertiary)]">
+            <span className="ml-2 text-[10px] italic text-[var(--text-tertiary)]">
               Actualizado: {lastUpdated.toLocaleTimeString('es-CO')}
             </span>
           )}
@@ -157,10 +156,17 @@ export function TransactionMapPage() {
           center={DEFAULT_CENTER}
           zoom={DEFAULT_ZOOM}
           style={{ width: '100%', height: '100%' }}
-          zoomControl={false}
+          zoomControl={true}
           attributionControl={false}
           minZoom={2}
           maxZoom={18}
+          // Interactivo como la 1ª versión
+          dragging={true}
+          scrollWheelZoom={true}
+          doubleClickZoom={true}
+          boxZoom={true}
+          keyboard={true}
+          touchZoom={true}
         >
           <TileLayer url={tileUrl} />
 

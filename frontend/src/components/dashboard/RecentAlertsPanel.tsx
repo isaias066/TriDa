@@ -1,20 +1,14 @@
 // ¿Qué? Panel lateral que muestra las alertas más recientes del sistema.
-// ¿Para qué? Reemplazar el bloque float-alerts de dashboards.jsx que renderizaba
-//            las alertas recientes con markup inline y estilos duplicados.
-// ¿Impacto? Se usa exclusivamente en DashboardPage para dar visibilidad rápida
-//           a las últimas transacciones sospechosas detectadas por el modelo IA.
+// ¿Para qué? Mostrar alertas recientes resolviendo el color real según criticidad.
+// ¿Impacto? Se usa en DashboardPage; garantiza rojo en CRÍTICO, naranja en ALTO, etc.
 
 import { AlertTriangle, ChevronRight, Radio } from 'lucide-react';
 import type { RecentAlert } from '@app-types';
-import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
+import { RISK_COLORS, RISK_LEVELS, getRiskLevel, type RiskLevel } from '@constants/Risk';
 import { formatCurrency, formatTime } from '@utils/Formatters';
 import { Spinner } from '@components/ui/Spinner';
 import { EmptyState } from '@components/ui/EmptyState';
 import { Button } from '@components/ui/Button';
-
-// ==============================================================================
-// TYPES
-// ==============================================================================
 
 export interface RecentAlertsPanelProps {
   alerts: RecentAlert[];
@@ -28,7 +22,30 @@ export interface RecentAlertsPanelProps {
 }
 
 // ==============================================================================
-// COMPONENTE
+// HELPER DE NORMALIZACIÓN (PRIORIZA TEXTO DE CRITICIDAD SOBRE SCORE)
+// ==============================================================================
+
+function normalizeRiskLevel(rawLevel?: string, score?: number): RiskLevel {
+  const str = String(rawLevel || '')
+    .toUpperCase()
+    .trim();
+
+  // 1. Prioridad total al texto de criticidad que viene de la BD
+  if (str.includes('CRIT') || str === 'CRITICAL') return 'critical';
+  if (str.includes('ALT') || str === 'HIGH') return 'high';
+  if (str.includes('MED') || str === 'MEDIUM') return 'medium';
+  if (str.includes('BAJ') || str === 'LOW') return 'low';
+
+  // 2. Solo si no hay texto válido, evalúa el score si es > 0
+  if (typeof score === 'number' && !isNaN(score) && score > 0) {
+    return getRiskLevel(score);
+  }
+
+  return 'low';
+}
+
+// ==============================================================================
+// COMPONENTE PRINCIPAL
 // ==============================================================================
 
 export function RecentAlertsPanel({
@@ -43,124 +60,39 @@ export function RecentAlertsPanel({
 }: RecentAlertsPanelProps) {
   const visibleAlerts = alerts.slice(0, maxItems);
 
-  // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const panelStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-    fontFamily: 'Inter, sans-serif',
-    overflow: 'hidden',
-    minHeight: '300px',
-    maxHeight: '600px',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    padding: '16px',
-    borderBottom: '1px solid var(--border)',
-    flexShrink: 0,
-  };
-
-  const headerLeftStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flex: 1,
-  };
-
-  const headerIconStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    color: 'var(--text-secondary)',
-  };
-
-  const headerTitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-  };
-
-  const countBadgeStyle: React.CSSProperties = {
-    fontSize: '10px',
-    fontWeight: 700,
-    color: '#818CF8',
-    background: 'rgba(99, 102, 241, 0.15)',
-    padding: '3px 8px',
-    borderRadius: '10px',
-    fontVariantNumeric: 'tabular-nums',
-  };
-
-  const liveIndicatorStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    fontSize: '10px',
-    fontWeight: 600,
-    color: '#34D399',
-  };
-
-  const liveDotStyle: React.CSSProperties = {
-    width: '6px',
-    height: '6px',
-    borderRadius: '50%',
-    background: '#34D399',
-    animation: 'recent-alerts-pulse 2s ease-in-out infinite',
-  };
-
-  const listStyle: React.CSSProperties = {
-    flex: 1,
-    overflowY: 'auto',
-    overflowX: 'hidden',
-    padding: '4px 0',
-  };
-
-  const footerStyle: React.CSSProperties = {
-    padding: '12px 16px',
-    borderTop: '1px solid var(--border)',
-    flexShrink: 0,
-  };
-
-  // ==============================================================================
-  // RENDER
-  // ==============================================================================
-
   return (
     <div
-      className={`recent-alerts-panel ${className}`}
-      style={panelStyle}
+      className={`flex min-h-[300px] max-h-[600px] w-full flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] font-sans ${className}`}
       role="region"
       aria-label={title}
     >
       {/* Header */}
-      <div style={headerStyle}>
-        <div style={headerLeftStyle}>
-          <span style={headerIconStyle}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] p-4">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center text-[var(--text-secondary)]">
             <AlertTriangle size={15} strokeWidth={2} />
           </span>
-          <span style={headerTitleStyle}>{title}</span>
-          <span style={countBadgeStyle}>{alerts.length}</span>
+          <span className="text-[13px] font-bold text-[var(--text-primary)]">{title}</span>
+          <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold tabular-nums text-indigo-400">
+            {alerts.length}
+          </span>
         </div>
 
         {isLive && (
-          <div style={liveIndicatorStyle} aria-label="Datos en tiempo real">
-            <span style={liveDotStyle} />
+          <div
+            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400"
+            aria-label="Datos en tiempo real"
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
             <Radio size={10} />
           </div>
         )}
       </div>
 
       {/* Lista de alertas */}
-      <div style={listStyle}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden py-1">
         {loading ? (
-          <div style={{ padding: '40px 20px' }}>
+          <div className="p-10">
             <Spinner label="Cargando alertas..." centered />
           </div>
         ) : visibleAlerts.length === 0 ? (
@@ -176,9 +108,9 @@ export function RecentAlertsPanel({
         )}
       </div>
 
-      {/* Footer con "Ver todas" */}
+      {/* Footer */}
       {onViewAll && !loading && visibleAlerts.length > 0 && (
-        <div style={footerStyle}>
+        <div className="shrink-0 border-t border-[var(--border)] p-3">
           <Button
             variant="ghost"
             size="sm"
@@ -190,13 +122,6 @@ export function RecentAlertsPanel({
           </Button>
         </div>
       )}
-
-      <style>{`
-        @keyframes recent-alerts-pulse {
-          0%, 100% { opacity: 1; }
-          50%      { opacity: 0.4; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -210,120 +135,30 @@ interface RecentAlertItemProps {
   onClick?: () => void;
 }
 
-/**
- * Item individual de alerta reciente.
- */
 function RecentAlertItem({ alert, onClick }: RecentAlertItemProps) {
-  const level = alert.level as RiskLevel;
-  const color = alert.color || RISK_COLORS[level] || 'var(--text-tertiary)';
+  // Conversión segura pasando por 'unknown' primero para cumplir reglas estrictas de TS
+  const rawAlert = alert as unknown as Record<string, unknown>;
+  const rawScore =
+    typeof rawAlert.score === 'number'
+      ? rawAlert.score
+      : typeof rawAlert.riskScore === 'number'
+        ? rawAlert.riskScore
+        : undefined;
+
+  // Normalizar nivel considerando primero la cadena 'CRÍTICO', 'ALTO', etc.
+  const level = normalizeRiskLevel(alert.level, rawScore);
+  const color = RISK_COLORS[level];
   const levelLabel = RISK_LEVELS[level]?.label ?? level;
   const isClickable = Boolean(onClick);
-
-  // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const itemStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-    padding: '10px 16px',
-    cursor: isClickable ? 'pointer' : 'default',
-    transition: 'background 0.15s ease',
-    borderLeft: 'none',
-  };
-
-  const dotStyle: React.CSSProperties = {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: color,
-    flexShrink: 0,
-    marginTop: '5px',
-    boxShadow: `0 0 6px ${color}40`,
-  };
-
-  const contentStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '3px',
-    flex: 1,
-    minWidth: 0,
-  };
-
-  const row1Style: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '8px',
-  };
-
-  const idStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 700,
-    color: 'var(--text-secondary)',
-    fontVariantNumeric: 'tabular-nums',
-    fontFamily: 'ui-monospace, monospace',
-  };
-
-  const timeStyle: React.CSSProperties = {
-    fontSize: '10px',
-    color: 'var(--text-tertiary)',
-    fontVariantNumeric: 'tabular-nums',
-    whiteSpace: 'nowrap',
-  };
-
-  const descriptionStyle: React.CSSProperties = {
-    fontSize: '12px',
-    color: 'var(--text-secondary)',
-    lineHeight: 1.4,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  };
-
-  const row3Style: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexWrap: 'wrap',
-  };
-
-  const amountStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-    fontVariantNumeric: 'tabular-nums',
-  };
-
-  const levelStyle: React.CSSProperties = {
-    fontSize: '9px',
-    fontWeight: 700,
-    color: color,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  };
-
-  const originStyle: React.CSSProperties = {
-    fontSize: '10px',
-    color: 'var(--text-tertiary)',
-  };
-
-  // ==============================================================================
-  // FORMATEO
-  // ==============================================================================
 
   const alertId = alert.id ? `#${String(alert.id).padStart(4, '0')}` : '';
   const alertTime = formatTime(alert.timestamp);
 
-  // ==============================================================================
-  // RENDER
-  // ==============================================================================
-
   return (
     <div
-      className="recent-alert-item"
-      style={itemStyle}
+      className={`flex items-start gap-2.5 px-4 py-2.5 transition-colors duration-150 ${
+        isClickable ? 'cursor-pointer hover:bg-[var(--bg-tertiary)]' : ''
+      }`}
       onClick={onClick}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
@@ -334,45 +169,52 @@ function RecentAlertItem({ alert, onClick }: RecentAlertItemProps) {
           onClick?.();
         }
       }}
-      onMouseEnter={(e) => {
-        if (isClickable) {
-          (e.currentTarget as HTMLElement).style.background = 'var(--bg-tertiary)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (isClickable) {
-          (e.currentTarget as HTMLElement).style.background = 'transparent';
-        }
-      }}
     >
-      {/* Dot de color */}
-      <span style={dotStyle} aria-hidden="true" />
+      {/* Dot de color exacto según el nivel */}
+      <span
+        className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+        style={{
+          backgroundColor: color,
+          boxShadow: `0 0 8px ${color}80`,
+        }}
+        aria-hidden="true"
+      />
 
       {/* Contenido */}
-      <div style={contentStyle}>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         {/* Fila 1: ID + hora */}
-        <div style={row1Style}>
-          <span style={idStyle}>{alertId}</span>
-          <span style={timeStyle}>{alertTime}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[11px] font-bold tabular-nums text-[var(--text-secondary)]">
+            {alertId}
+          </span>
+          <span className="whitespace-nowrap text-[10px] tabular-nums text-[var(--text-tertiary)]">
+            {alertTime}
+          </span>
         </div>
 
         {/* Fila 2: Descripción */}
-        <span style={descriptionStyle} title={alert.description}>
+        <span className="truncate text-xs text-[var(--text-secondary)]" title={alert.description}>
           {alert.description}
         </span>
 
         {/* Fila 3: Monto + origen + nivel */}
-        <div style={row3Style}>
+        <div className="flex flex-wrap items-center gap-2">
           {alert.amount !== null && alert.amount !== undefined && (
-            <span style={amountStyle}>{formatCurrency(alert.amount)}</span>
+            <span className="text-[11px] font-bold tabular-nums text-[var(--text-primary)]">
+              {formatCurrency(alert.amount)}
+            </span>
           )}
           {alert.origin && (
             <>
-              <span style={originStyle}>·</span>
-              <span style={originStyle}>{alert.origin}</span>
+              <span className="text-[10px] text-[var(--text-tertiary)]">·</span>
+              <span className="text-[10px] text-[var(--text-tertiary)]">{alert.origin}</span>
             </>
           )}
-          <span style={levelStyle}>{levelLabel.toUpperCase()}</span>
+
+          {/* Label de criticidad con su color dinámico correspondiente */}
+          <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color }}>
+            {levelLabel}
+          </span>
         </div>
       </div>
     </div>

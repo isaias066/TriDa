@@ -1,6 +1,6 @@
 // ¿Qué? Página principal del Dashboard del sistema TriDa.
-// ¿Para qué? Reemplazar el Spinner con Skeletons usando los imports unificados de @components/ui.
-// ¿Impacto? Corrije errores de casing de TypeScript y mejora la velocidad de carga.
+// ¿Para qué? Renderizar métricas, alertas recientes y panel de distribución de riesgo.
+// ¿Impacto? Integra componentes visuales optimizados y Skeletons de carga.
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,9 +10,9 @@ import { useDashboardData } from '@hooks/useDashboardData';
 import { useAlerts } from '@hooks/useAlerts';
 import { useFormattedClock } from '@hooks/useClock';
 
-// ── IMPORTS UNIFICADOS DE UI (Solución al error de casing) ──
 import { Button, EmptyState, Skeleton } from '@components/ui';
 import { StatsCardsGrid, AlertsByLevelRings, RecentAlertsPanel } from '@components/dashboard';
+import type { RiskLevel } from '@constants/Risk';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -56,7 +56,7 @@ export function DashboardPage() {
     navigate('/alerts');
   };
 
-  const handleLevelClick = (level: string): void => {
+  const handleLevelClick = (level: RiskLevel): void => {
     navigate(`/alerts?level=${level}`);
   };
 
