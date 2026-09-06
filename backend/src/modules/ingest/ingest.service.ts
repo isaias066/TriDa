@@ -67,12 +67,14 @@ export class IngestService {
       },
     });
 
-    // 5. Motor de Riesgo Determinista de 7 Factores
+    // 5. Motor de Riesgo Determinista de 7 Factores (con medición real de tiempo)
+    const startTime = Date.now();
     const riskAnalysis = await this.calculateRisk(
       data,
       cliente.id_cliente,
       timestamp,
     );
+    const processingTime = Date.now() - startTime;
 
     // Determinar Estado de la transacción según Score
     let estado_transaccion:
@@ -103,7 +105,7 @@ export class IngestService {
         score_riesgo: riskAnalysis.score,
         estado_transaccion,
         es_fraude_real: null,
-        tiempo_de_procesamiento: Math.floor(Math.random() * 800) + 100,
+        tiempo_de_procesamiento: processingTime, // ← REAL
         moneda: data.currency,
         canal: data.channel,
       },

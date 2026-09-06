@@ -119,8 +119,13 @@ export async function getAlertsCountByLevel(
 
 export async function getRecentAlerts(
   bankId: SelectedBankId = ALL_BANKS_ID,
+  limit: number = 15,
 ): Promise<RecentAlert[]> {
-  const params = bankId !== ALL_BANKS_ID ? { banco: bankId } : undefined;
-  const raw = await get<AlertRaw[]>('/dashboard/alertas-recientes', params);
-  return normalizeRecentAlerts(raw);
+  const params: Record<string, any> = { limit };
+  if (bankId !== ALL_BANKS_ID) {
+    params.banco = bankId;
+  }
+
+  const raw = await get<any[]>('/dashboard/alertas-recientes', params);
+  return normalizeRecentAlerts(raw ?? []);
 }

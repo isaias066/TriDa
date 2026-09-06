@@ -1,19 +1,15 @@
 // ¿Qué? Hook que gestiona toda la carga de datos del Dashboard principal.
-// ¿Para qué? Reemplazar la lógica compleja de dashboards.jsx que hacía fetch en
-//            paralelo de múltiples fuentes y calculaba métricas manualmente.
-// ¿Impacto? Simplifica el Dashboard a un solo hook y permite auto-refresh
-//           opcional para monitoreo en tiempo real de transacciones y alertas.
+// ¿Para qué? Centralizar la consulta y refresco de métricas, alertas y estado en vivo.
+// ¿Impacto? Trae las 15 alertas sin truncar y el TPS/latencia reales del backend.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDashboardData } from '@api/Dashboard';
+import { get } from '@api/Client';
 import type { DashboardStats, RecentAlert, SelectedBankId } from '@app-types';
 import { ALL_BANKS_ID } from '@app-types';
 
-// ==============================================================================
-// CONSTANTES
-// ==============================================================================
-
 const DEFAULT_AUTO_REFRESH_MS = 30_000;
+const LIVE_POLLING_MS = 10_000;
 
 const EMPTY_STATS: DashboardStats = {
   totalTransactions: 0,
@@ -30,19 +26,40 @@ const EMPTY_STATS: DashboardStats = {
   },
 };
 
-// ==============================================================================
-// TYPES
-// ==============================================================================
+export interface LiveStatus {
+  status: 'LIVE' | 'STANDBY' | 'OFFLINE';
+  isLive: boolean;
+  tps: number;
+  latencyMs: number;
+  transactionsLastMinute: number;
+  simulator: {
+    online: boolean;
+    streaming: boolean;
+  };
+  lastActivitySecondsAgo: number;
+}
+
+const EMPTY_LIVE_STATUS: LiveStatus = {
+  status: 'OFFLINE',
+  isLive: false,
+  tps: 0,
+  latencyMs: 0,
+  transactionsLastMinute: 0,
+  simulator: { online: false, streaming: false },
+  lastActivitySecondsAgo: 9999,
+};
 
 export interface UseDashboardDataOptions {
   autoRefresh?: boolean;
   autoRefreshMs?: number;
   enabled?: boolean;
+  alertsLimit?: number;
 }
 
 export interface UseDashboardDataResult {
   stats: DashboardStats;
   recentAlerts: RecentAlert[];
+  liveStatus: LiveStatus; // ← Propiedad requerida por DashboardPage.tsx
   loading: boolean;
   refreshing: boolean;
   error: string | null;
@@ -50,54 +67,28 @@ export interface UseDashboardDataResult {
   refetch: () => Promise<void>;
 }
 
-// ==============================================================================
-// HOOK PRINCIPAL
-// ==============================================================================
-
-/**
- * Carga y mantiene actualizados los datos del Dashboard principal.
- *
- * ¿Qué? Ejecuta en paralelo la carga de stats generales y alertas recientes,
- *        con opción de auto-refresh periódico para monitoreo en tiempo real.
- * ¿Para qué? Reemplazar el fetch múltiple del `dashboards.jsx` con una API
- *            limpia que retorna todo listo para renderizar.
- * ¿Impacto? Los cambios de banco disparan re-fetch automático, y el auto-refresh
- *           mantiene los datos frescos sin intervención del usuario.
- *
- * @param bankId - Código del banco a filtrar, o 'all'.
- * @param options - Configuración opcional del hook.
- * @returns Objeto con stats, alertas recientes y funciones de gestión.
- *
- *
- */
 export function useDashboardData(
   bankId: SelectedBankId = ALL_BANKS_ID,
   options: UseDashboardDataOptions = {},
 ): UseDashboardDataResult {
-  const { autoRefresh = false, autoRefreshMs = DEFAULT_AUTO_REFRESH_MS, enabled = true } = options;
-
-  // ==============================================================================
-  // ESTADOS
-  // ==============================================================================
+  const {
+    autoRefresh = false,
+    autoRefreshMs = DEFAULT_AUTO_REFRESH_MS,
+    enabled = true,
+    alertsLimit = 15,
+  } = options;
 
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>(EMPTY_LIVE_STATUS);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const intervalRef = useRef<number | null>(null);
+  const liveIntervalRef = useRef<number | null>(null);
 
-  // ==============================================================================
-  // FUNCIÓN DE CARGA
-  // ==============================================================================
-
-  /**
-   * Función interna para cargar los datos del Dashboard.
-   *
-   * @param isRefresh - Si es true, usa `refreshing` en vez de `loading`.
-   */
   const loadData = useCallback(
     async (isRefresh: boolean = false): Promise<void> => {
       if (isRefresh) {
@@ -108,7 +99,10 @@ export function useDashboardData(
       setError(null);
 
       try {
-        const { stats: newStats, recentAlerts: newAlerts } = await getDashboardData(bankId);
+        const { stats: newStats, recentAlerts: newAlerts } = await getDashboardData(
+          bankId,
+          alertsLimit,
+        );
         setStats(newStats);
         setRecentAlerts(newAlerts);
         setLastUpdated(new Date());
@@ -120,13 +114,22 @@ export function useDashboardData(
         setRefreshing(false);
       }
     },
-    [bankId],
+    [bankId, alertsLimit],
   );
 
-  // ==============================================================================
-  // CARGA INICIAL Y AL CAMBIAR BANCO
-  // ==============================================================================
+  const fetchLiveStatus = useCallback(async (): Promise<void> => {
+    try {
+      const params = bankId !== ALL_BANKS_ID ? { banco: bankId } : undefined;
+      const data = await get<LiveStatus>('/dashboard/live-status', params);
+      if (data) {
+        setLiveStatus(data);
+      }
+    } catch {
+      // Si el endpoint no responde temporalmente, se mantiene el último estado conocido
+    }
+  }, [bankId]);
 
+  // Carga inicial
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
@@ -140,10 +143,13 @@ export function useDashboardData(
       setError(null);
 
       try {
-        const { stats: newStats, recentAlerts: newAlerts } = await getDashboardData(bankId);
+        const [dashboardResult] = await Promise.all([
+          getDashboardData(bankId, alertsLimit),
+          fetchLiveStatus(),
+        ]);
         if (!cancelled) {
-          setStats(newStats);
-          setRecentAlerts(newAlerts);
+          setStats(dashboardResult.stats);
+          setRecentAlerts(dashboardResult.recentAlerts);
           setLastUpdated(new Date());
         }
       } catch (err) {
@@ -163,12 +169,9 @@ export function useDashboardData(
     return () => {
       cancelled = true;
     };
-  }, [bankId, enabled]);
+  }, [bankId, enabled, alertsLimit, fetchLiveStatus]);
 
-  // ==============================================================================
-  // AUTO-REFRESH PERIÓDICO
-  // ==============================================================================
-
+  // Auto-refresh de estadísticas generales
   useEffect(() => {
     if (!autoRefresh || !enabled) return;
 
@@ -184,50 +187,60 @@ export function useDashboardData(
     };
   }, [autoRefresh, autoRefreshMs, enabled, loadData]);
 
-  // ==============================================================================
-  // PAUSAR AUTO-REFRESH CUANDO LA PESTAÑA NO ESTÁ VISIBLE
-  // ==============================================================================
+  // Polling del estado en vivo (cada 10s)
+  useEffect(() => {
+    if (!enabled) return;
 
+    liveIntervalRef.current = window.setInterval(() => {
+      fetchLiveStatus();
+    }, LIVE_POLLING_MS);
+
+    return () => {
+      if (liveIntervalRef.current !== null) {
+        window.clearInterval(liveIntervalRef.current);
+        liveIntervalRef.current = null;
+      }
+    };
+  }, [enabled, fetchLiveStatus]);
+
+  // Pausar polling cuando la pestaña no esté visible
   useEffect(() => {
     if (!autoRefresh || !enabled) return;
 
-    /**
-     * Cuando la pestaña se oculta, cancela el intervalo.
-     * Cuando vuelve a mostrarse, refresca inmediatamente y reactiva el intervalo.
-     */
     const handleVisibilityChange = (): void => {
       if (document.hidden) {
         if (intervalRef.current !== null) {
           window.clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
+        if (liveIntervalRef.current !== null) {
+          window.clearInterval(liveIntervalRef.current);
+          liveIntervalRef.current = null;
+        }
       } else {
         loadData(true);
+        fetchLiveStatus();
         intervalRef.current = window.setInterval(() => {
           loadData(true);
         }, autoRefreshMs);
+        liveIntervalRef.current = window.setInterval(() => {
+          fetchLiveStatus();
+        }, LIVE_POLLING_MS);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [autoRefresh, autoRefreshMs, enabled, loadData]);
-
-  // ==============================================================================
-  // FUNCIÓN DE RECARGA MANUAL
-  // ==============================================================================
+  }, [autoRefresh, autoRefreshMs, enabled, loadData, fetchLiveStatus]);
 
   const refetch = useCallback(async (): Promise<void> => {
-    await loadData(true);
-  }, [loadData]);
-
-  // ==============================================================================
-  // RESULTADO
-  // ==============================================================================
+    await Promise.all([loadData(true), fetchLiveStatus()]);
+  }, [loadData, fetchLiveStatus]);
 
   return {
     stats,
     recentAlerts,
+    liveStatus,
     loading,
     refreshing,
     error,

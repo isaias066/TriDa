@@ -51,7 +51,7 @@ function normalizeRiskLevel(rawLevel?: string, score?: number): RiskLevel {
 export function RecentAlertsPanel({
   alerts,
   loading = false,
-  maxItems = 20,
+  maxItems = 15, // Actualizado a 15 por defecto
   onViewAll,
   onAlertClick,
   title = 'Alertas recientes',

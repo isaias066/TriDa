@@ -1,6 +1,6 @@
 // ¿Qué? Página del mapa geográfico de transacciones en tiempo real.
 // ¿Para qué? Mapa interactivo mundial con tiles sin API key, pulsos y stats.
-// ¿Impacto? Ruta /map — arrastre, zoom y vista global habilitados.
+// ¿Impacto? Muestra de forma inteligente si la data en el mapa está acotada.
 
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
@@ -13,6 +13,7 @@ import { useMapData } from '@hooks/useMapData';
 import { Button, EmptyState, Skeleton } from '@components/ui';
 import { MapPointMarker, MapPulseMarker, MapStatsOverlay } from '@components/map';
 import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
+import { ShieldAlert } from 'lucide-react'; // Icono para el badge de truncado
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -21,14 +22,12 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
 });
 
-// Tiles gratuitos sin API key (ESRI). Orden: {z}/{y}/{x}
 const TILE_URLS = {
   dark: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   light:
     'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
 } as const;
 
-// Vista mundo completo (interactiva, como la 1ª versión)
 const DEFAULT_CENTER: [number, number] = [20, 0];
 const DEFAULT_ZOOM = 2;
 const LEGEND_LEVELS: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
@@ -51,11 +50,13 @@ export function TransactionMapPage() {
     lastUpdated,
     refetch,
     refreshing,
+    totalPoints,
+    truncated,
   } = useMapData(selectedBank, {
     autoRefresh: true,
     autoRefreshMs: 10_000,
     enablePulses: true,
-    maxPoints: 150,
+    maxPoints: 500, // Soporta renderizado de hasta 500 puntos concurrentes
   });
 
   const [showOnlyCritical, setShowOnlyCritical] = useState(false);
@@ -106,9 +107,17 @@ export function TransactionMapPage() {
           <h1 className="m-0 text-lg font-extrabold tracking-tight text-[var(--text-primary)]">
             Mapa Global
           </h1>
-          <p className="m-0 text-xs text-[var(--text-secondary)]">
-            Transacciones en tiempo real · {visiblePoints.length.toLocaleString('es-CO')} puntos
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="m-0 text-xs text-[var(--text-secondary)]">
+              En tiempo real · {visiblePoints.length.toLocaleString('es-CO')} mostrados
+            </p>
+            {truncated && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-500 border border-amber-500/20 animate-pulse">
+                <ShieldAlert className="h-3 w-3 text-amber-500" />
+                Filtrados {points.length} de {totalPoints.toLocaleString('es-CO')} puntos
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -140,7 +149,7 @@ export function TransactionMapPage() {
                 : 'border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
             }`}
           >
-            {showOnlyCritical ? 'Solo críticos' : 'Solo críticos'}
+            Solo críticos
           </button>
 
           {lastUpdated && (
@@ -160,7 +169,6 @@ export function TransactionMapPage() {
           attributionControl={false}
           minZoom={2}
           maxZoom={18}
-          // Interactivo como la 1ª versión
           dragging={true}
           scrollWheelZoom={true}
           doubleClickZoom={true}

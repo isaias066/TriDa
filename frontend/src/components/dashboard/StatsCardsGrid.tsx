@@ -2,7 +2,7 @@
 // ¿Para qué? Muestra métricas clave con variantes alineadas a los niveles de riesgo de Risk.ts.
 // ¿Impacto? Utiliza variantes 'critical', 'high', 'low', 'info' alineadas a la paleta oficial.
 
-import { DollarSign, AlertTriangle, Ban, ShieldCheck, Zap } from 'lucide-react';
+import { DollarSign, AlertTriangle, Ban, ShieldCheck, Zap, Clock } from 'lucide-react';
 import { StatsCard } from './StatsCards';
 import type { DashboardStats } from '@app-types';
 import { formatCurrency, formatPercent, formatNumber } from '@utils/Formatters';
@@ -11,6 +11,8 @@ export interface StatsCardsGridProps {
   stats: DashboardStats;
   isLive?: boolean;
   transactionsPerSecond?: number;
+  latencyMs?: number;
+  liveStatusLabel?: string;
   onFraudClick?: () => void;
   onBlockedClick?: () => void;
   className?: string;
@@ -20,6 +22,8 @@ export function StatsCardsGrid({
   stats,
   isLive = false,
   transactionsPerSecond = 0,
+  latencyMs = 0,
+  liveStatusLabel = 'Sistema pausado',
   onFraudClick,
   onBlockedClick,
   className = '',
@@ -29,7 +33,8 @@ export function StatsCardsGrid({
       ? `${formatNumber(stats.totalFrauds)} (${formatPercent(stats.fraudRate, 1)})`
       : '0';
 
-  const tpsDisplay = isLive ? formatNumber(transactionsPerSecond) : '0';
+  const tpsDisplay = isLive ? transactionsPerSecond.toFixed(1) : '0.0';
+  const latencyDisplay = isLive ? `${Math.round(latencyMs)} ms` : '— ms';
 
   return (
     <div
@@ -45,7 +50,7 @@ export function StatsCardsGrid({
         variant="info"
       />
 
-      {/* 2. Fraudes detectados (Variante de riesgo Crítico) */}
+      {/* 2. Fraudes detectados */}
       <StatsCard
         icon={AlertTriangle}
         value={fraudDisplay}
@@ -55,7 +60,7 @@ export function StatsCardsGrid({
         onClick={onFraudClick}
       />
 
-      {/* 3. Transacciones bloqueadas (Variante de riesgo Alto) */}
+      {/* 3. Transacciones bloqueadas */}
       <StatsCard
         icon={Ban}
         value={formatNumber(stats.totalBlocked)}
@@ -64,7 +69,7 @@ export function StatsCardsGrid({
         onClick={onBlockedClick}
       />
 
-      {/* 4. Estado del Motor Antifraude (Verídico - Nivel Bajo / Seguro) */}
+      {/* 4. Estado del Motor Antifraude */}
       <StatsCard
         icon={ShieldCheck}
         value="Activo"
@@ -73,14 +78,24 @@ export function StatsCardsGrid({
         subtitle="7 factores ponderados"
       />
 
-      {/* 5. Transacciones por segundo */}
+      {/* 5. TPS real */}
       <StatsCard
         icon={Zap}
         value={tpsDisplay}
         label="TXN/seg"
         variant={isLive ? 'medium' : 'primary'}
         animated={isLive}
-        subtitle={isLive ? 'Simulado en vivo' : 'Sistema pausado'}
+        subtitle={liveStatusLabel}
+      />
+
+      {/* 6. Latencia real del motor */}
+      <StatsCard
+        icon={Clock}
+        value={latencyDisplay}
+        label="Latencia motor"
+        variant={isLive ? 'info' : 'primary'}
+        animated={isLive}
+        subtitle={isLive ? 'Tiempo de procesamiento' : 'Sin actividad'}
       />
     </div>
   );

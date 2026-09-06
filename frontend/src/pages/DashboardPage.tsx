@@ -1,6 +1,6 @@
 // ¿Qué? Página principal del Dashboard del sistema TriDa.
 // ¿Para qué? Renderizar métricas, alertas recientes y panel de distribución de riesgo.
-// ¿Impacto? Integra componentes visuales optimizados y Skeletons de carga.
+// ¿Impacto? Integra componentes visuales optimizados, Skeletons de carga y estado en vivo real.
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -23,18 +23,17 @@ export function DashboardPage() {
     document.title = 'Dashboard — TriDa';
   }, []);
 
-  const [isLive, setIsLive] = useState(true);
-
   const {
     stats,
     recentAlerts,
+    liveStatus,
     loading: dashboardLoading,
     refreshing,
     error: dashboardError,
     lastUpdated,
     refetch: refetchDashboard,
   } = useDashboardData(selectedBank, {
-    autoRefresh: isLive,
+    autoRefresh: true,
     autoRefreshMs: 30_000,
   });
 
@@ -69,6 +68,10 @@ export function DashboardPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Determinar estado visual del badge LIVE
+  const isLive = liveStatus.isLive;
+  const isStandby = liveStatus.status === 'STANDBY';
 
   if (dashboardError && !stats.totalTransactions) {
     return (
@@ -136,23 +139,27 @@ export function DashboardPage() {
             {timeWithSeconds}
           </span>
 
-          <button
-            type="button"
-            onClick={() => setIsLive(!isLive)}
-            aria-label={isLive ? 'Pausar sistema' : 'Reanudar sistema'}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[10px] font-bold transition-all duration-150 ${
+          {/* Badge de estado en vivo (datos reales, sin Math.random) */}
+          <span
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[10px] font-bold ${
               isLive
                 ? 'border-[rgba(6,214,160,0.25)] bg-[rgba(6,214,160,0.1)] text-neon-green'
-                : 'border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'
+                : isStandby
+                  ? 'border-[rgba(245,158,11,0.25)] bg-[rgba(245,158,11,0.1)] text-amber-400'
+                  : 'border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'
             }`}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                isLive ? 'animate-pulse-slow bg-neon-green' : 'bg-[var(--text-disabled)]'
+                isLive
+                  ? 'animate-pulse-slow bg-neon-green'
+                  : isStandby
+                    ? 'bg-amber-400'
+                    : 'bg-[var(--text-disabled)]'
               }`}
             />
-            {isLive ? 'LIVE' : 'OFF'}
-          </button>
+            {isLive ? 'LIVE' : isStandby ? 'EN ESPERA' : 'OFFLINE'}
+          </span>
 
           <Button
             variant="ghost"
@@ -176,7 +183,15 @@ export function DashboardPage() {
         <StatsCardsGrid
           stats={stats}
           isLive={isLive}
-          transactionsPerSecond={isLive ? Math.floor(Math.random() * 8) + 3 : 0}
+          transactionsPerSecond={liveStatus.tps}
+          latencyMs={liveStatus.latencyMs}
+          liveStatusLabel={
+            isLive
+              ? 'Transmisión activa'
+              : isStandby
+                ? 'Simulador en espera'
+                : 'Sin conexión externa'
+          }
           onFraudClick={handleFraudClick}
           onBlockedClick={handleBlockedClick}
         />
