@@ -1,27 +1,205 @@
-// ¿Qué? Hook que encapsula la carga y gestión de alertas del sistema TriDa.
-// ¿Para qué? Reemplazar el patrón repetitivo de useState + useEffect + fetch
-//            que estaba en alerts.jsx y evitar duplicarlo en futuros componentes.
-// ¿Impacto? Simplifica los componentes que necesitan mostrar alertas y garantiza
-//           comportamiento consistente (loading, error, refresh, cancelación).
+// ¿Qué? Hook de alertas con paginación real, filtros, sort y conteos globales.
+// ¿Para qué? Reemplaza filtrado/paginación en memoria de AlertsPage.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAlerts, getRecentAlerts } from '@api/Alertas';
-import { countByRiskLevel } from '@utils/Risk';
-import type { Alert, AlertCriticality, RecentAlert, SelectedBankId } from '@app-types';
+import {
+  getAlertsPage,
+  getAlertLevelCounts,
+  getRecentAlerts,
+  type AlertFilters,
+  type AlertSort,
+  type AlertLevelCounts,
+} from '@api/Alertas';
+import { useDebounce } from './useDebounce';
+import type { Alert, RecentAlert, SelectedBankId, AlertCriticality } from '@app-types';
 import { ALL_BANKS_ID } from '@app-types';
 
-// ==============================================================================
-// TYPES
-// ==============================================================================
+const DEFAULT_PAGE_SIZE = 30;
+const SEARCH_DEBOUNCE_MS = 400;
+
+const EMPTY_FILTERS: AlertFilters = {
+  search: '',
+  level: 'all',
+  status: 'all',
+};
+
+const DEFAULT_SORT: AlertSort = {
+  field: 'timestamp',
+  direction: 'desc',
+};
+
+const EMPTY_LEVEL_COUNTS: AlertLevelCounts = {
+  all: 0,
+  low: 0,
+  medium: 0,
+  high: 0,
+  critical: 0,
+  active: 0,
+};
+
+export interface UseAlertsOptions {
+  initialFilters?: AlertFilters;
+  initialSort?: AlertSort;
+  pageSize?: number;
+}
 
 export interface UseAlertsResult {
   alerts: Alert[];
+  filteredAlerts: Alert[];
   loading: boolean;
   refreshing: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+
+  levelCounts: AlertLevelCounts;
   count: number;
   counts: Record<AlertCriticality, number>;
+
+  filters: AlertFilters;
+  setFilters: (filters: Partial<AlertFilters>) => void;
+  clearFilters: () => void;
+
+  sort: AlertSort;
+  toggleSort: (field: string) => void;
+
+  page: number;
+  setPage: (page: number) => void;
+  totalPages: number;
+  totalCount: number;
+
+  selected: Alert | null;
+  setSelected: (alert: Alert | null) => void;
+}
+
+export function useAlerts(
+  bankId: SelectedBankId = ALL_BANKS_ID,
+  options: UseAlertsOptions = {},
+): UseAlertsResult {
+  const {
+    initialFilters = EMPTY_FILTERS,
+    initialSort = DEFAULT_SORT,
+    pageSize = DEFAULT_PAGE_SIZE,
+  } = options;
+
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [filters, setFiltersState] = useState<AlertFilters>(initialFilters);
+  const [sort, setSort] = useState<AlertSort>(initialSort);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [selected, setSelected] = useState<Alert | null>(null);
+  const [levelCounts, setLevelCounts] = useState<AlertLevelCounts>(EMPTY_LEVEL_COUNTS);
+
+  const debouncedSearch = useDebounce(filters.search ?? '', SEARCH_DEBOUNCE_MS);
+
+  const effectiveFilters = useMemo<AlertFilters>(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch],
+  );
+
+  const fetchLevelCounts = useCallback(async () => {
+    try {
+      setLevelCounts(await getAlertLevelCounts(bankId));
+    } catch {
+      setLevelCounts(EMPTY_LEVEL_COUNTS);
+    }
+  }, [bankId]);
+
+  useEffect(() => {
+    fetchLevelCounts();
+  }, [fetchLevelCounts]);
+
+  const fetchPage = useCallback(
+    async (isSilent = false) => {
+      if (!isSilent) setLoading(true);
+      setError(null);
+
+      try {
+        const offset = page * pageSize;
+        const data = await getAlertsPage(bankId, pageSize, offset, effectiveFilters, sort);
+        setAlerts(data.items);
+        setTotalCount(data.total);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error cargando alertas');
+        setAlerts([]);
+        setTotalCount(0);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [bankId, page, pageSize, effectiveFilters, sort],
+  );
+
+  useEffect(() => {
+    fetchPage();
+  }, [fetchPage]);
+
+  const refetch = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchPage(true), fetchLevelCounts()]);
+  }, [fetchPage, fetchLevelCounts]);
+
+  const setFilters = useCallback((next: Partial<AlertFilters>) => {
+    setFiltersState((prev) => ({ ...prev, ...next }));
+    setPage(0);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFiltersState(EMPTY_FILTERS);
+    setPage(0);
+  }, []);
+
+  const toggleSort = useCallback((field: string) => {
+    setSort((prev) => {
+      if (prev.field === field) {
+        return { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { field, direction: 'desc' };
+    });
+    setPage(0);
+  }, []);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalCount / pageSize)),
+    [totalCount, pageSize],
+  );
+
+  const counts = useMemo<Record<AlertCriticality, number>>(
+    () => ({
+      low: levelCounts.low,
+      medium: levelCounts.medium,
+      high: levelCounts.high,
+      critical: levelCounts.critical,
+    }),
+    [levelCounts],
+  );
+
+  return {
+    alerts,
+    filteredAlerts: alerts,
+    loading,
+    refreshing,
+    error,
+    refetch,
+    levelCounts,
+    count: levelCounts.all,
+    counts,
+    filters,
+    setFilters,
+    clearFilters,
+    sort,
+    toggleSort,
+    page,
+    setPage,
+    totalPages,
+    totalCount,
+    selected,
+    setSelected,
+  };
 }
 
 export interface UseRecentAlertsResult {
@@ -31,168 +209,18 @@ export interface UseRecentAlertsResult {
   refetch: () => Promise<void>;
 }
 
-// ==============================================================================
-// HOOK PRINCIPAL — useAlerts
-// ==============================================================================
-
-/**
- * Carga y gestiona las alertas del sistema, opcionalmente filtradas por banco.
- *
- * ¿Qué? Encapsula el ciclo completo de fetch: estados de loading/error,
- *        normalización, contadores derivados y refetch manual.
- * ¿Para qué? Reemplazar el patrón que estaba en `alerts.jsx`:
- *
- *     const [alertsData, setAlertsData] = useState([]);
- *     const [loading, setLoading] = useState(true);
- *     useEffect(() => {
- *       setLoading(true);
- *       fetch(...).then(...).finally(() => setLoading(false));
- *     }, [selectedBank]);
- *
- * ¿Impacto? Al cambiar el banco, cancela cualquier request pendiente para
- *           evitar acumular llamadas obsoletas.
- *
- * @param bankId - Código del banco a filtrar, o 'all'.
- * @returns Objeto con alertas, estados y funciones de gestión.
- *
- *
- */
-export function useAlerts(bankId: SelectedBankId = ALL_BANKS_ID): UseAlertsResult {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  /**
-   * Función interna para cargar alertas.
-   *
-   * ¿Por qué está separada? Para reutilizarla en el useEffect inicial y en
-   * las llamadas manuales a refetch().
-   */
-  const fetchAlerts = useCallback(
-    async (isRefresh: boolean = false): Promise<void> => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-
-      try {
-        const data = await getAlerts(bankId);
-        setAlerts(data);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Error cargando alertas';
-        setError(message);
-        setAlerts([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [bankId],
-  );
-
-  // ==============================================================================
-  // CARGA INICIAL — Al montar o cambiar el banco
-  // ==============================================================================
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async (): Promise<void> => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await getAlerts(bankId);
-        if (!cancelled) {
-          setAlerts(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Error cargando alertas';
-          setError(message);
-          setAlerts([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    // Cleanup: si el bankId cambia antes de que termine el fetch,
-    // marcamos el efecto como cancelado para no actualizar el estado
-    return () => {
-      cancelled = true;
-    };
-  }, [bankId]);
-
-  // ==============================================================================
-  // REFETCH MANUAL
-  // ==============================================================================
-
-  const refetch = useCallback(async (): Promise<void> => {
-    await fetchAlerts(true);
-  }, [fetchAlerts]);
-
-  // ==============================================================================
-  // VALORES DERIVADOS — Contadores
-  // ==============================================================================
-
-  const counts = useMemo<Record<AlertCriticality, number>>(
-    () => countByRiskLevel(alerts),
-    [alerts],
-  );
-
-  const count = alerts.length;
-
-  return {
-    alerts,
-    loading,
-    refreshing,
-    error,
-    refetch,
-    count,
-    counts,
-  };
-}
-
-// ==============================================================================
-// HOOK SECUNDARIO — useRecentAlerts
-// ==============================================================================
-
-/**
- * Carga las alertas recientes del Dashboard (formato simplificado).
- *
- * ¿Qué? Consume `/api/dashboard/alertas-recientes` que retorna un subset
- *        de las alertas con solo los campos necesarios para el panel del Dashboard.
- * ¿Para qué? Consumo eficiente en el Dashboard sin cargar toda la lista completa.
- * ¿Impacto? Payload más ligero que useAlerts, ideal para el Dashboard.
- *
- * @param bankId - Código del banco a filtrar, o 'all'.
- * @returns Objeto con alertas recientes, loading, error y refetch.
- *
- * );
- */
 export function useRecentAlerts(bankId: SelectedBankId = ALL_BANKS_ID): UseRecentAlertsResult {
   const [alerts, setAlerts] = useState<RecentAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (): Promise<void> => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const data = await getRecentAlerts(bankId);
-      setAlerts(data);
+      setAlerts(await getRecentAlerts(bankId));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error cargando alertas recientes';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Error cargando alertas recientes');
       setAlerts([]);
     } finally {
       setLoading(false);
@@ -201,40 +229,25 @@ export function useRecentAlerts(bankId: SelectedBankId = ALL_BANKS_ID): UseRecen
 
   useEffect(() => {
     let cancelled = false;
-
-    const fetchData = async (): Promise<void> => {
+    (async () => {
       setLoading(true);
       setError(null);
-
       try {
         const data = await getRecentAlerts(bankId);
-        if (!cancelled) {
-          setAlerts(data);
-        }
+        if (!cancelled) setAlerts(data);
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Error cargando alertas recientes';
-          setError(message);
+          setError(err instanceof Error ? err.message : 'Error cargando alertas recientes');
           setAlerts([]);
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
-    };
-
-    fetchData();
-
+    })();
     return () => {
       cancelled = true;
     };
   }, [bankId]);
 
-  return {
-    alerts,
-    loading,
-    error,
-    refetch: load,
-  };
+  return { alerts, loading, error, refetch: load };
 }

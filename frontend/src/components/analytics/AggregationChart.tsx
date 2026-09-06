@@ -1,27 +1,23 @@
-// ¿Qué? Gráfico de barras horizontal para mostrar agregaciones de datos.
-// ¿Para qué? Reemplazar los 4 gráficos inline de analytics.jsx que tenían
-//            markup casi idéntico pero con datos diferentes.
-// ¿Impacto? Se usa 4 veces en AnalyticsPage: por tipo, por ciudad, por canal
-//           y por banco. Un solo componente tipado y reutilizable.
+// ¿Qué? Gráfico de agregaciones horizontal para analíticas TriDa.
+// ¿Para qué? Visualizar distribuciones por tipo, ciudad, canal y banco sin emojis ni hex sueltos.
+// ¿Impacto? Reutilizado en AnalyticsPage; soporte completo de iconos Lucide como ReactNode.
 
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { EmptyState } from '@components/ui/EmptyState';
 
 // ==============================================================================
-// TYPES
+// TYPES (Una sola declaración limpia)
 // ==============================================================================
 
-/** Estructura de un item del gráfico. */
 export interface ChartItem {
   label: string;
   count: number;
   fraud?: number;
   amount?: number;
   color?: string;
-  icon?: string;
+  icon?: ReactNode;
 }
 
-/** Props del AggregationChart. */
 export interface AggregationChartProps {
   title: string;
   data: ChartItem[];
@@ -45,10 +41,6 @@ export function AggregationChart({
   emptyMessage = 'Sin datos',
   className = '',
 }: AggregationChartProps) {
-  // ==============================================================================
-  // DATOS PROCESADOS
-  // ==============================================================================
-
   const visibleData = useMemo(() => {
     const sorted = [...data].sort((a, b) => b.count - a.count);
     return maxItems ? sorted.slice(0, maxItems) : sorted;
@@ -56,22 +48,16 @@ export function AggregationChart({
 
   const maxCount = useMemo(() => Math.max(...visibleData.map((d) => d.count), 1), [visibleData]);
 
-  // ==============================================================================
-  // RENDER — VACÍO
-  // ==============================================================================
-
   if (visibleData.length === 0) {
     return (
-      <div className={`flex flex-col gap-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 font-sans ${className}`}>
+      <div
+        className={`flex flex-col gap-3.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 font-sans ${className}`}
+      >
         <h3 className="m-0 text-sm font-bold text-[var(--text-primary)]">{title}</h3>
         <EmptyState preset="no-data" description={emptyMessage} size="sm" />
       </div>
     );
   }
-
-  // ==============================================================================
-  // RENDER — GRÁFICO
-  // ==============================================================================
 
   return (
     <div
@@ -95,10 +81,10 @@ export function AggregationChart({
                 item.fraud !== undefined ? ` (${item.fraud} fraudes)` : ''
               }`}
             >
-              {/* Label */}
-              <span className="flex w-28 shrink-0 items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium text-[var(--text-secondary)]">
-                {item.icon && <span>{item.icon}</span>}
-                {item.label}
+              {/* Label + Icono Lucide */}
+              <span className="flex w-28 shrink-0 items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium text-[var(--text-secondary)]">
+                {item.icon}
+                <span className="truncate">{item.label}</span>
               </span>
 
               {/* Barra */}
@@ -122,11 +108,11 @@ export function AggregationChart({
                 {item.count.toLocaleString('es-CO')}
               </span>
 
-              {/* Fraudes (opcional) */}
+              {/* Fraudes */}
               {showFraudColumn && (
                 <span
                   className={`w-[35px] shrink-0 text-right text-[11px] font-semibold tabular-nums ${
-                    hasFraud ? 'text-[#FF6B6B]' : 'text-[#06D6A0]'
+                    hasFraud ? 'text-[var(--risk-critical)]' : 'text-[var(--risk-low)]'
                   }`}
                 >
                   {item.fraud ?? 0}

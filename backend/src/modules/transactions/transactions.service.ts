@@ -1,7 +1,5 @@
-// ¿Qué? Servicio de consulta y procesamiento de transacciones.
-// ¿Para qué? Registrar transacciones, consultar el modelo IA y generar alertas.
-// ¿Impacto? Conecta PostgreSQL + Backend + Random Forest de TriDa.
-//           Soporta paginación honesta de 3 parámetros (Día 4).
+// ¿Qué? Servicio de transacciones con mapeo de estados, niveles y ordenamiento.
+// ¿Para qué? Paginación, filtros y sorting directamente en PostgreSQL (alto rendimiento).
 
 import { prisma } from "../../db/prisma.js";
 import { config } from "../../config.js";
@@ -12,6 +10,144 @@ interface ResultadoIA {
   nivel_riesgo: "BAJO" | "MEDIO" | "ALTO";
 }
 
+export interface FiltrosTransacciones {
+  status?: string;
+  level?: string;
+  channel?: string;
+  search?: string;
+  amountMin?: number;
+  amountMax?: number;
+}
+
+export interface SortTransacciones {
+  field?: string;
+  direction?: "asc" | "desc";
+}
+
+function sqlNivelRiesgo(level: string): string | null {
+  const lvl = level.toLowerCase();
+  if (lvl === "low" || lvl === "baja") return `t.score_riesgo < 25`;
+  if (lvl === "medium" || lvl === "media")
+    return `t.score_riesgo >= 25 AND t.score_riesgo < 50`;
+  if (lvl === "high" || lvl === "alta")
+    return `t.score_riesgo >= 50 AND t.score_riesgo < 75`;
+  if (lvl === "critical" || lvl === "critica" || lvl === "crítica")
+    return `t.score_riesgo >= 75`;
+  return null;
+}
+
+function mapEstadoTransaccion(status: string): string | null {
+  const s = status.toLowerCase().trim();
+  const map: Record<string, string> = {
+    all: "",
+    todos: "",
+    approved: "APROBADA",
+    aprobada: "APROBADA",
+    aprobadas: "APROBADA",
+    blocked: "BLOQUEADA",
+    bloqueada: "BLOQUEADA",
+    bloqueadas: "BLOQUEADA",
+    alerted: "ALERTADA",
+    alertada: "ALERTADA",
+    alertadas: "ALERTADA",
+    marked: "ALERTADA",
+    marcada: "ALERTADA",
+    marcadas: "ALERTADA",
+    pending: "PENDIENTE",
+    pendiente: "PENDIENTE",
+    pendientes: "PENDIENTE",
+  };
+  if (s in map) return map[s] || null;
+  const up = status.toUpperCase();
+  if (["PENDIENTE", "APROBADA", "ALERTADA", "BLOQUEADA"].includes(up))
+    return up;
+  return null;
+}
+
+function resolveOrderBy(sort?: SortTransacciones): string {
+  const dir = sort?.direction === "asc" ? "ASC" : "DESC";
+  const field = (sort?.field ?? "timestamp").toLowerCase();
+
+  // Whitelist para prevenir SQL Injection en el ORDER BY
+  const map: Record<string, string> = {
+    id: "t.id_transaccion",
+    timestamp: "t.fecha_transaccion",
+    fecha: "t.fecha_transaccion",
+    user: "c.nombre_completo",
+    usuario: "c.nombre_completo",
+    amount: "t.monto",
+    monto: "t.monto",
+    riskscore: "t.score_riesgo",
+    risk_score: "t.score_riesgo",
+    score: "t.score_riesgo",
+    type: "t.tipo_transaccion",
+    status: "t.estado_transaccion",
+    bank: "b.nombre",
+    channel: "t.canal",
+    city: "u.ciudad",
+    location: "u.ciudad",
+  };
+
+  const column = map[field] ?? "t.fecha_transaccion";
+  return `${column} ${dir} NULLS LAST, t.id_transaccion DESC`;
+}
+
+function buildFilters(
+  bancoCodigo: string | null,
+  filtros: FiltrosTransacciones,
+): { whereSql: string; params: unknown[] } {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  let i = 1;
+
+  if (bancoCodigo) {
+    params.push(bancoCodigo);
+    conditions.push(`b.codigo = $${i++}`);
+  }
+
+  if (filtros.status && filtros.status !== "all") {
+    const estado = mapEstadoTransaccion(filtros.status);
+    if (estado) {
+      params.push(estado);
+      conditions.push(`t.estado_transaccion = $${i++}`);
+    }
+  }
+
+  if (filtros.level && filtros.level !== "all") {
+    const nivelSql = sqlNivelRiesgo(filtros.level);
+    if (nivelSql) conditions.push(nivelSql);
+  }
+
+  if (filtros.channel && filtros.channel !== "all") {
+    params.push(filtros.channel.toLowerCase());
+    conditions.push(`t.canal = $${i++}`);
+  }
+
+  if (filtros.amountMin !== undefined && !Number.isNaN(filtros.amountMin)) {
+    params.push(filtros.amountMin);
+    conditions.push(`t.monto >= $${i++}`);
+  }
+  if (filtros.amountMax !== undefined && !Number.isNaN(filtros.amountMax)) {
+    params.push(filtros.amountMax);
+    conditions.push(`t.monto <= $${i++}`);
+  }
+
+  if (filtros.search && filtros.search.trim() !== "") {
+    params.push(`%${filtros.search.trim()}%`);
+    const p = `$${i++}`;
+    conditions.push(`(
+      t.id_transaccion::text ILIKE ${p}
+      OR t.cuenta_origen ILIKE ${p}
+      OR t.cuenta_destino ILIKE ${p}
+      OR t.tipo_transaccion ILIKE ${p}
+      OR c.nombre_completo ILIKE ${p}
+    )`);
+  }
+
+  const whereSql = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  return { whereSql, params };
+}
+
 async function consultarIA(data: any): Promise<ResultadoIA> {
   const ahora = new Date();
   const diaSemana = ahora.getDay();
@@ -19,13 +155,11 @@ async function consultarIA(data: any): Promise<ResultadoIA> {
 
   const response = await fetch(`${config.IA_URL}/predict`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       monto: Number(data.monto),
       tipo_transaccion: data.tipo_transaccion,
-      hora: hora,
+      hora,
       dia_semana: diaSemana,
       es_fin_de_semana: [0, 6].includes(diaSemana) ? 1 : 0,
       es_madrugada: hora >= 23 || hora < 6 ? 1 : 0,
@@ -38,55 +172,119 @@ async function consultarIA(data: any): Promise<ResultadoIA> {
   if (!response.ok) {
     throw new Error(`La IA respondió con HTTP ${response.status}`);
   }
-
   return (await response.json()) as ResultadoIA;
 }
 
 export const transactionsService = {
-  // ── LISTADO PAGINADO (Día 4 — Paginación honesta) ──────────────────────────
   async list(
     bancoCodigo: string | null = null,
-    limit: number = 500,
+    limit: number = 30,
     offset: number = 0,
+    filtros: FiltrosTransacciones = {},
+    sort?: SortTransacciones,
   ) {
-    // 1. Obtener los registros paginados de la BD
-    const items = await prisma.$queryRaw<any[]>`
-      SELECT * FROM trida.fn_transacciones(
-        ${bancoCodigo}::text,
-        ${limit}::integer,
-        ${offset}::integer
-      )
+    const safeLimit = Math.max(1, Math.min(limit || 30, 2000));
+    const safeOffset = Math.max(0, offset || 0);
+    const { whereSql, params } = buildFilters(bancoCodigo, filtros);
+    const orderBy = resolveOrderBy(sort);
+
+    const baseFrom = `
+      FROM trida.transacciones t
+      JOIN trida.clientes c               ON c.id_cliente   = t.id_cliente
+      JOIN trida.bancos b                 ON b.id_banco     = t.id_banco
+      JOIN trida.historico_de_ubicacion u ON u.id_ubicacion = t.id_ubicacion
+      ${whereSql}
     `;
 
-    // 2. Obtener el total real utilizando la función count del Día 4
-    const countRows = await prisma.$queryRaw<
-      { count: string | number | bigint }[]
-    >`
-      SELECT trida.fn_transacciones_count(${bancoCodigo}::text) as count
+    const itemsSql = `
+      SELECT
+        t.id_transaccion,
+        t.fecha_transaccion,
+        c.nombre_completo AS cliente,
+        b.nombre  AS banco,
+        b.codigo  AS banco_codigo,
+        b.color   AS banco_color,
+        t.tipo_transaccion,
+        t.monto,
+        t.score_riesgo,
+        t.estado_transaccion,
+        t.canal,
+        u.ciudad,
+        u.pais
+      ${baseFrom}
+      ORDER BY ${orderBy}
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
 
-    const total = countRows[0]?.count ? Number(countRows[0].count) : 0;
-    const hasMore = offset + items.length < total;
+    const countSql = `SELECT COUNT(*)::bigint AS total ${baseFrom}`;
 
-    // 3. Retornar el contrato completo de paginación
+    const items = await prisma.$queryRawUnsafe<any[]>(
+      itemsSql,
+      ...params,
+      safeLimit,
+      safeOffset,
+    );
+    const countRows = await prisma.$queryRawUnsafe<
+      { total: string | number }[]
+    >(countSql, ...params);
+
+    const total = countRows[0]?.total ? Number(countRows[0].total) : 0;
+
     return {
       items,
       total,
-      limit,
-      offset,
-      hasMore,
+      limit: safeLimit,
+      offset: safeOffset,
+      hasMore: safeOffset + items.length < total,
     };
   },
 
-  // ── CREAR TRANSACCIÓN ──────────────────────────────────────────────────────
-  async create(data: any) {
-    // 1. Consultar el modelo Random Forest de TriDa
-    const resultadoIA = await consultarIA(data);
+  async countsByLevel(bancoCodigo: string | null = null) {
+    const params: unknown[] = [];
+    let bancoSql = "";
+    if (bancoCodigo) {
+      params.push(bancoCodigo);
+      bancoSql = `AND b.codigo = $1`;
+    }
 
+    const rows = await prisma.$queryRawUnsafe<
+      {
+        total: string | number;
+        low: string | number;
+        medium: string | number;
+        high: string | number;
+        critical: string | number;
+      }[]
+    >(
+      `
+      SELECT
+        COUNT(*)::bigint AS total,
+        COUNT(*) FILTER (WHERE t.score_riesgo < 25)::bigint AS low,
+        COUNT(*) FILTER (WHERE t.score_riesgo >= 25 AND t.score_riesgo < 50)::bigint AS medium,
+        COUNT(*) FILTER (WHERE t.score_riesgo >= 50 AND t.score_riesgo < 75)::bigint AS high,
+        COUNT(*) FILTER (WHERE t.score_riesgo >= 75)::bigint AS critical
+      FROM trida.transacciones t
+      JOIN trida.bancos b ON b.id_banco = t.id_banco
+      WHERE 1=1 ${bancoSql}
+      `,
+      ...params,
+    );
+
+    const r = rows[0];
+    return {
+      all: Number(r?.total ?? 0),
+      low: Number(r?.low ?? 0),
+      medium: Number(r?.medium ?? 0),
+      high: Number(r?.high ?? 0),
+      critical: Number(r?.critical ?? 0),
+    };
+  },
+
+  async create(data: any) {
+    const resultadoIA = await consultarIA(data);
     const score = Number(resultadoIA.score_riesgo);
     const fraude = Boolean(resultadoIA.fraude);
 
-    // 2. Determinar estado y nivel según el score de la IA
     let estadoTransaccion: "APROBADA" | "ALERTADA" | "BLOQUEADA";
     let nivel: "BAJA" | "MEDIA" | "ALTA" | "CRITICA";
 
@@ -107,7 +305,6 @@ export const transactionsService = {
       nivel = "BAJA";
     }
 
-    // 3. Guardar la transacción en PostgreSQL
     const nuevaTx = await prisma.transaccion.create({
       data: {
         id_cliente: data.id_cliente,
@@ -118,8 +315,6 @@ export const transactionsService = {
         monto: data.monto,
         cuenta_origen: data.cuenta_origen,
         cuenta_destino: data.cuenta_destino,
-
-        // Resultado del Random Forest
         score_riesgo: score,
         estado_transaccion: estadoTransaccion,
         canal: data.canal,
@@ -127,9 +322,7 @@ export const transactionsService = {
       },
     });
 
-    // 4. Generar alerta cuando el score sea >= 30
     let alertaGenerada = null;
-
     if (score >= 30) {
       alertaGenerada = await prisma.alerta.create({
         data: {
@@ -144,7 +337,6 @@ export const transactionsService = {
       });
     }
 
-    // 5. Devolver resultado completo
     return {
       transaccion: nuevaTx,
       evaluacionRiesgo: {

@@ -1,16 +1,16 @@
-// ¿Qué? Capa API para endpoints de transacciones bancarias.
-// ¿Para qué? Centralizar consultas y soportar respuesta paginada { items, total }
-//            sin romper páginas que esperan Transaction[].
-// ¿Impacto? Fuente de datos de Dashboard, Sidebar, Transacciones y métricas derivadas.
+// ¿Qué? Capa API para transacciones.
+// ¿Para qué? Paginación, filtros, sort y conteos; exports de compatibilidad para Sidebar.
 
 import { get } from './Client';
 import { normalizeTransactions } from '@utils/Normalizers';
-import type { Transaction, TransactionRaw, SelectedBankId } from '@app-types';
+import type {
+  Transaction,
+  TransactionRaw,
+  SelectedBankId,
+  TransactionFilters,
+  TransactionSort,
+} from '@app-types';
 import { ALL_BANKS_ID } from '@app-types';
-
-// ==============================================================================
-// TIPOS DE RESPUESTA (Día 4)
-// ==============================================================================
 
 export interface PaginatedTransactions {
   items: Transaction[];
@@ -20,115 +20,86 @@ export interface PaginatedTransactions {
   hasMore: boolean;
 }
 
-type TransactionsApiResponse =
-  | TransactionRaw[]
-  | {
-      items: TransactionRaw[];
-      total: number;
-      limit?: number;
-      offset?: number;
-      hasMore?: boolean;
-    };
-
-function unwrapTransactions(raw: TransactionsApiResponse): {
+type TransactionsApiResponse = {
   items: TransactionRaw[];
   total: number;
   limit: number;
   offset: number;
   hasMore: boolean;
-} {
-  if (Array.isArray(raw)) {
-    return {
-      items: raw,
-      total: raw.length,
-      limit: raw.length,
-      offset: 0,
-      hasMore: false,
-    };
-  }
+};
 
-  const items = Array.isArray(raw.items) ? raw.items : [];
-  const total = Number(raw.total ?? items.length);
-  const limit = Number(raw.limit ?? items.length);
-  const offset = Number(raw.offset ?? 0);
-  const hasMore = Boolean(raw.hasMore ?? offset + items.length < total);
-
-  return { items, total, limit, offset, hasMore };
+export interface LevelCounts {
+  all: number;
+  low: number;
+  medium: number;
+  high: number;
+  critical: number;
 }
 
-// ==============================================================================
-// ENDPOINTS PRINCIPALES
-// ==============================================================================
-
-/**
- * Listado paginado (preferido para UI consciente de totales).
- */
 export async function getTransactionsPage(
   bankId: SelectedBankId = ALL_BANKS_ID,
-  limit = 500,
+  limit = 30,
   offset = 0,
+  filters?: TransactionFilters,
+  sort?: TransactionSort,
 ): Promise<PaginatedTransactions> {
   const params: Record<string, string | number> = {
     limit,
     offset,
   };
+
   if (bankId !== ALL_BANKS_ID) params.banco = bankId;
 
+  if (filters) {
+    if (filters.status && filters.status !== 'all') params.status = filters.status;
+    if (filters.level && filters.level !== 'all') params.level = filters.level;
+    if (filters.channel && filters.channel !== 'all') params.channel = filters.channel;
+    if (filters.search && filters.search.trim() !== '') {
+      params.search = filters.search.trim();
+    }
+    if (filters.amountMin !== undefined) params.amountMin = filters.amountMin;
+    if (filters.amountMax !== undefined) params.amountMax = filters.amountMax;
+  }
+
+  if (sort?.field) {
+    params.sortBy = sort.field;
+    params.sortDir = sort.direction === 'asc' ? 'asc' : 'desc';
+  }
+
   const raw = await get<TransactionsApiResponse>('/transacciones', params);
-  const unwrapped = unwrapTransactions(raw);
 
   return {
-    items: normalizeTransactions(unwrapped.items),
-    total: unwrapped.total,
-    limit: unwrapped.limit,
-    offset: unwrapped.offset,
-    hasMore: unwrapped.hasMore,
+    items: normalizeTransactions(raw.items ?? []),
+    total: Number(raw.total ?? 0),
+    limit: Number(raw.limit ?? limit),
+    offset: Number(raw.offset ?? offset),
+    hasMore: Boolean(raw.hasMore),
   };
 }
 
-/**
- * Compatibilidad: devuelve solo el array normalizado (como antes).
- * Internamente usa la respuesta paginada del backend.
- */
+export async function getTransactionLevelCounts(
+  bankId: SelectedBankId = ALL_BANKS_ID,
+): Promise<LevelCounts> {
+  const params = bankId !== ALL_BANKS_ID ? { banco: bankId } : undefined;
+  return get<LevelCounts>('/transacciones/counts-by-level', params);
+}
+
+/** Usado por Sidebar y contadores ligeros */
+export async function getTransactionsCount(bankId: SelectedBankId = ALL_BANKS_ID): Promise<number> {
+  try {
+    const counts = await getTransactionLevelCounts(bankId);
+    return counts.all;
+  } catch {
+    // Fallback si counts-by-level aún no está montado
+    const page = await getTransactionsPage(bankId, 1, 0);
+    return page.total;
+  }
+}
+
+/** Compatibilidad legada */
 export async function getTransactions(
   bankId: SelectedBankId = ALL_BANKS_ID,
 ): Promise<Transaction[]> {
   const page = await getTransactionsPage(bankId, 500, 0);
   return page.items;
-}
-
-// ==============================================================================
-// FUNCIONES DERIVADAS
-// ==============================================================================
-
-export async function getTransactionsCount(bankId: SelectedBankId = ALL_BANKS_ID): Promise<number> {
-  const page = await getTransactionsPage(bankId, 1, 0);
-  return page.total;
-}
-
-export async function getBlockedTransactionsCount(
-  bankId: SelectedBankId = ALL_BANKS_ID,
-): Promise<number> {
-  const transactions = await getTransactions(bankId);
-  return transactions.filter((tx) => tx.status === 'blocked').length;
-}
-
-export async function getFraudTransactionsCount(
-  bankId: SelectedBankId = ALL_BANKS_ID,
-): Promise<number> {
-  const transactions = await getTransactions(bankId);
-  return transactions.filter((tx) => tx.isFraud).length;
-}
-
-export async function getTotalAmount(bankId: SelectedBankId = ALL_BANKS_ID): Promise<number> {
-  const transactions = await getTransactions(bankId);
-  return transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-}
-
-export async function getCriticalAlertsCount(
-  bankId: SelectedBankId = ALL_BANKS_ID,
-): Promise<number> {
-  const transactions = await getTransactions(bankId);
-  return transactions.filter((tx) => tx.alertLevel === 'critical' || tx.alertLevel === 'high')
-    .length;
 }

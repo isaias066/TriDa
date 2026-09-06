@@ -1,6 +1,5 @@
-// ¿Qué? Página de transacciones bancarias del sistema TriDa.
-// ¿Para qué? Buscar, filtrar, ordenar y exportar transacciones.
-// ¿Impacto? Skeletons de carga integrados + Exportación a PDF real (asíncrona).
+// ¿Qué? Página de transacciones.
+// ¿Para qué? Asegurar que la DataTable delegue correctamente el evento onSortChange a toggleSort.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
@@ -21,7 +20,6 @@ import { TransactionDetail } from '@components/transactions';
 import { RISK_COLORS, RISK_LEVELS, type RiskLevel } from '@constants/Risk';
 import { formatCurrency, formatTime } from '@utils/Formatters';
 import { exportData, buildExportPreview, type ExportColumn } from '@utils/Export';
-import { countByRiskLevel } from '@utils/Risk';
 import type { Transaction, ExportMetadata, TransactionSortField } from '@app-types';
 
 const LEVEL_ORDER: RiskLevel[] = ['critical', 'high', 'medium', 'low'];
@@ -29,10 +27,12 @@ const LEVEL_ORDER: RiskLevel[] = ['critical', 'high', 'medium', 'low'];
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todos' },
   { value: 'approved', label: 'Aprobadas' },
-  { value: 'flagged', label: 'Marcadas' },
+  { value: 'alerted', label: 'Marcadas' },
   { value: 'blocked', label: 'Bloqueadas' },
   { value: 'pending', label: 'Pendientes' },
 ] as const;
+
+const PAGE_SIZE = 30;
 
 const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
   {
@@ -49,7 +49,6 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     label: 'Hora',
     sortable: true,
     width: '80px',
-    sortAccessor: (tx) => (tx.timestamp ? new Date(tx.timestamp) : null),
     render: (tx) => <span className="font-mono text-[11px]">{formatTime(tx.timestamp)}</span>,
   },
   {
@@ -61,11 +60,13 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
   {
     key: 'bank',
     label: 'Banco',
+    sortable: true,
     render: (tx) => <BankBadge bank={tx.bank} size="sm" />,
   },
   {
     key: 'type',
     label: 'Tipo',
+    sortable: true,
     render: (tx) => tx.type,
   },
   {
@@ -73,7 +74,6 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     label: 'Monto',
     sortable: true,
     align: 'right',
-    sortAccessor: (tx) => tx.amount,
     render: (tx) => (
       <span className="font-mono font-bold tabular-nums text-[var(--text-primary)]">
         {formatCurrency(tx.amount)}
@@ -85,17 +85,18 @@ const TABLE_COLUMNS: DataTableColumn<Transaction>[] = [
     label: 'Riesgo',
     sortable: true,
     align: 'center',
-    sortAccessor: (tx) => tx.riskScore,
     render: (tx) => <RiskBadge score={tx.riskScore} size="sm" />,
   },
   {
     key: 'location',
     label: 'Ciudad',
+    sortable: true,
     render: (tx) => tx.location?.city ?? '—',
   },
   {
     key: 'status',
     label: 'Estado',
+    sortable: true,
     align: 'center',
     render: (tx) => <StatusBadge type="transaction" status={tx.status} size="sm" />,
   },
@@ -126,7 +127,6 @@ export function TransactionsPage() {
 
   const {
     transactions,
-    allTransactions,
     filteredTransactions,
     loading,
     error,
@@ -142,19 +142,15 @@ export function TransactionsPage() {
     setPage,
     selected,
     setSelected,
+    levelCounts,
   } = useTransactions(selectedBank);
 
   const [exportPreview, setExportPreview] = useState<ExportMetadata | null>(null);
 
-  const levelCounts = countByRiskLevel(allTransactions);
   const hasActiveFilters =
     (filters.level && filters.level !== 'all') ||
     (filters.status && filters.status !== 'all') ||
     (filters.search && filters.search.trim() !== '');
-
-  // ==============================================================================
-  // EXPORTACIÓN ASÍNCRONA (NUEVO)
-  // ==============================================================================
 
   const handleExport = useCallback(
     async (format: 'csv' | 'pdf' | 'json' | 'xlsx'): Promise<void> => {
@@ -165,7 +161,7 @@ export function TransactionsPage() {
           columns: EXPORT_COLUMNS,
           filenamePrefix: 'transacciones_trida',
           title: 'TRANSACCIONES — TriDa Sistema Antifraude',
-          pdfRowLimit: 500, // Previene colgar el navegador con PDFs gigantes
+          pdfRowLimit: 500,
         });
       } catch (err) {
         console.error('Error al exportar:', err);
@@ -182,11 +178,7 @@ export function TransactionsPage() {
     [filteredTransactions],
   );
 
-  // ==============================================================================
-  // RENDER — LOADING SKELETONS
-  // ==============================================================================
-
-  if (loading) {
+  if (loading && transactions.length === 0) {
     return (
       <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
         <header className="flex flex-wrap items-start justify-between gap-4">
@@ -207,10 +199,6 @@ export function TransactionsPage() {
     );
   }
 
-  // ==============================================================================
-  // RENDER — ERROR
-  // ==============================================================================
-
   if (error) {
     return (
       <div className="flex min-h-screen flex-col gap-4 p-6 font-sans md:p-8">
@@ -227,13 +215,8 @@ export function TransactionsPage() {
     );
   }
 
-  // ==============================================================================
-  // RENDER — PAGE
-  // ==============================================================================
-
   return (
     <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
-      {/* HEADER */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="m-0 flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
@@ -252,7 +235,6 @@ export function TransactionsPage() {
         />
       </header>
 
-      {/* FILTROS */}
       <div className="flex flex-wrap items-center gap-4 border-b border-[var(--border)] pb-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
@@ -260,7 +242,7 @@ export function TransactionsPage() {
           </span>
           <FilterChip
             label="Todos"
-            count={allTransactions.length}
+            count={levelCounts.all}
             active={!filters.level || filters.level === 'all'}
             onClick={() => setFilters({ level: 'all' })}
           />
@@ -304,20 +286,19 @@ export function TransactionsPage() {
         placeholder="Buscar por ID, usuario, banco, ciudad, tipo..."
       />
 
-      {/* CUERPO: Tabla + Panel */}
       <div className="flex flex-1 gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           {filteredTransactions.length === 0 ? (
             <EmptyState
-              preset={allTransactions.length === 0 ? 'no-data' : 'no-results'}
-              title={allTransactions.length === 0 ? 'Sin transacciones' : undefined}
+              preset={levelCounts.all === 0 ? 'no-data' : 'no-results'}
+              title={levelCounts.all === 0 ? 'Sin transacciones' : undefined}
               description={
-                allTransactions.length === 0
+                levelCounts.all === 0
                   ? 'No se encontraron transacciones para el banco seleccionado.'
                   : undefined
               }
               action={
-                allTransactions.length > 0 ? (
+                levelCounts.all > 0 ? (
                   <Button variant="ghost" onClick={clearFilters}>
                     Limpiar filtros
                   </Button>
@@ -339,7 +320,7 @@ export function TransactionsPage() {
                 page={page}
                 totalPages={totalPages}
                 totalItems={totalCount}
-                pageSize={30}
+                pageSize={PAGE_SIZE}
                 onPageChange={setPage}
               />
             </>

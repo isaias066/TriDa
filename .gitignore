@@ -1,11 +1,46 @@
-# Dependencias de Node (ignora node_modules en la raíz y subcarpetas)
+# Dependencias
 node_modules/
-**/node_modules/
+.pnpm-store/
 
-# Archivos de entorno y credenciales
+# Builds y compilados
+dist/
+build/
+.next/
+*.tsbuildinfo
 
+# Entornos y Secretos (CRÍTICO)
+.env
+.env.*
+!.env.example
+*.env
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
-# Archivos de sistema
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Base de datos local / Backups / Dumps
+*.sql.gz
+*.dump
+*.backup
+postgres_data/
+
+# Sistema Operativo / IDEs
 .DS_Store
 Thumbs.db
 .vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

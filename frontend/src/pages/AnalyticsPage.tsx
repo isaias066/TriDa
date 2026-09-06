@@ -1,55 +1,39 @@
-// ¿Qué? Página de analíticas y métricas del modelo de IA del sistema TriDa.
-// ¿Para qué? Reemplazar analytics.jsx con una versión modular que usa
-//            useAnalyticsData hook y AggregationChart reutilizable.
-// ¿Impacto? Se accede en /analytics. Los analistas pueden evaluar la efectividad
-//           del modelo IA, tasas de detección, falsos positivos y distribuciones.
+// ¿Qué? Página de analíticas del modelo TriDa.
+// ¿Para qué? KPIs + 4 agregaciones con datos reales del backend enriquecido.
+// ¿Impacto? Sin emojis ni estilos inline de negocio; skeletons y tokens CSS.
 
 import { useEffect } from 'react';
-import { BarChart3 } from 'lucide-react';
+import {
+  BarChart3,
+  Smartphone,
+  Monitor,
+  CreditCard,
+  Landmark,
+  Building2,
+  RefreshCw,
+} from 'lucide-react';
 import { useBank } from '@context/BankContext';
 import { useAnalyticsData } from '@hooks/useAnalyticsData';
-import { Spinner } from '@components/ui/Spinner';
-import { EmptyState } from '@components/ui/EmptyState';
-import { Button } from '@components/ui/Button';
+import { Button, EmptyState, Skeleton } from '@components/ui';
 import { ScoreRing } from '@components/shared/ScoreRing';
 import { AggregationChart } from '@components/analytics';
 import { formatCurrency, formatNumber, formatPercent } from '@utils/Formatters';
+import type { LucideIcon } from 'lucide-react';
 
-// ==============================================================================
-// HELPERS
-// ==============================================================================
-
-/** Emoji por canal de transacción. */
-const CHANNEL_ICONS: Record<string, string> = {
-  mobile: '📱',
-  web: '💻',
-  pos: '💳',
-  atm: '🏧',
-  branch: '🏦',
+const CHANNEL_ICONS: Record<string, LucideIcon> = {
+  mobile: Smartphone,
+  web: Monitor,
+  pos: CreditCard,
+  atm: Landmark,
+  branch: Building2,
 };
-
-function getChannelIcon(channel: string): string {
-  return CHANNEL_ICONS[channel?.toLowerCase()] ?? '📊';
-}
-
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
 
 export function AnalyticsPage() {
   const { selectedBank } = useBank();
 
-  // ==============================================================================
-  // METADATA
-  // ==============================================================================
-
   useEffect(() => {
     document.title = 'Analíticas — TriDa';
   }, []);
-
-  // ==============================================================================
-  // DATOS
-  // ==============================================================================
 
   const {
     metrics,
@@ -61,131 +45,40 @@ export function AnalyticsPage() {
     error,
     lastUpdated,
     refetch,
+    refreshing,
   } = useAnalyticsData(selectedBank, {
     topCitiesLimit: 12,
     topBanksLimit: 10,
+    autoRefresh: true,
+    autoRefreshMs: 60_000,
   });
-
-  // ==============================================================================
-  // ESTILOS
-  // ==============================================================================
-
-  const pageStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-    padding: '24px',
-    minHeight: '100vh',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '16px',
-    flexWrap: 'wrap',
-  };
-
-  const headerLeftStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: 'var(--text-primary)',
-    margin: 0,
-    letterSpacing: '-0.02em',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  };
-
-  const subtitleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    margin: 0,
-  };
-
-  const lastUpdatedStyle: React.CSSProperties = {
-    fontSize: '10px',
-    color: 'var(--text-tertiary)',
-    fontStyle: 'italic',
-  };
-
-  const metricsGridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
-  };
-
-  const metricCardStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    padding: '20px',
-    background: 'var(--bg-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-  };
-
-  const metricInfoStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    flex: 1,
-    minWidth: 0,
-  };
-
-  const metricValueStyle: React.CSSProperties = {
-    fontSize: '20px',
-    fontWeight: 800,
-    color: 'var(--text-primary)',
-    letterSpacing: '-0.02em',
-    fontVariantNumeric: 'tabular-nums',
-  };
-
-  const metricLabelStyle: React.CSSProperties = {
-    fontSize: '11px',
-    fontWeight: 500,
-    color: 'var(--text-tertiary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  };
-
-  const chartsGridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-    gap: '16px',
-  };
-
-  // ==============================================================================
-  // RENDER — LOADING
-  // ==============================================================================
 
   if (loading) {
     return (
-      <div style={pageStyle}>
-        <Spinner size="lg" label="Cargando analíticas del modelo..." centered />
+      <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-64 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  // ==============================================================================
-  // RENDER — ERROR
-  // ==============================================================================
-
   if (error) {
     return (
-      <div style={pageStyle}>
+      <div className="flex min-h-screen flex-col gap-4 p-6 font-sans md:p-8">
         <EmptyState
           preset="error"
           description={error}
           action={
-            <Button variant="primary" onClick={refetch}>
+            <Button variant="primary" onClick={() => refetch()}>
               Reintentar
             </Button>
           }
@@ -194,135 +87,153 @@ export function AnalyticsPage() {
     );
   }
 
-  // ==============================================================================
-  // RENDER — PÁGINA
-  // ==============================================================================
-
   return (
-    <div style={pageStyle}>
-      {/* ================================================================
-          HEADER
-          ================================================================ */}
-
-      <header style={headerStyle}>
-        <div style={headerLeftStyle}>
-          <h1 style={titleStyle}>
-            <BarChart3 size={24} />
+    <div className="flex min-h-screen flex-col gap-5 p-6 font-sans md:p-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 flex items-center gap-2.5 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
+            <BarChart3 size={24} aria-hidden />
             Analíticas del Modelo
           </h1>
-          <p style={subtitleStyle}>Métricas de efectividad y rendimiento del modelo de IA</p>
+          <p className="m-0 text-[13px] text-[var(--text-secondary)]">
+            Efectividad, distribución y exposición por dimensión
+          </p>
         </div>
 
-        {lastUpdated && (
-          <span style={lastUpdatedStyle}>
-            Actualizado: {lastUpdated.toLocaleTimeString('es-CO')}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <span className="text-[10px] italic text-[var(--text-tertiary)]">
+              Actualizado: {lastUpdated.toLocaleTimeString('es-CO')}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={refreshing}
+            aria-label="Actualizar analíticas"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : undefined} />
+          </Button>
+        </div>
       </header>
 
-      {/* ================================================================
-          MÉTRICAS DEL MODELO — 4 cards con ScoreRings
-          ================================================================ */}
-
-      <section aria-label="Métricas del modelo de IA">
-        <div style={metricsGridStyle}>
-          {/* Tasa de detección */}
-          <div style={metricCardStyle}>
-            <ScoreRing
-              score={metrics.detectionRate}
-              size="md"
-              color="#34D399"
-              scoreFormat="compact"
-            />
-            <div style={metricInfoStyle}>
-              <span style={metricValueStyle}>{formatPercent(metrics.detectionRate)}</span>
-              <span style={metricLabelStyle}>Tasa de Detección</span>
-            </div>
+      <section
+        aria-label="Métricas del modelo de IA"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+          <ScoreRing
+            score={metrics.detectionRate}
+            size="md"
+            color="#34D399"
+            scoreFormat="compact"
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="text-xl font-extrabold tabular-nums tracking-tight text-[var(--text-primary)]">
+              {formatPercent(metrics.detectionRate)}
+            </span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+              Tasa de Detección
+            </span>
           </div>
+        </div>
 
-          {/* Falsos positivos */}
-          <div style={metricCardStyle}>
-            <ScoreRing
-              score={metrics.falsePositiveRate}
-              size="md"
-              color="#FBBF24"
-              scoreFormat="compact"
-            />
-            <div style={metricInfoStyle}>
-              <span style={metricValueStyle}>{formatPercent(metrics.falsePositiveRate)}</span>
-              <span style={metricLabelStyle}>Falsos Positivos</span>
-            </div>
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+          <ScoreRing
+            score={metrics.falsePositiveRate}
+            size="md"
+            color="#FBBF24"
+            scoreFormat="compact"
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="text-xl font-extrabold tabular-nums tracking-tight text-[var(--text-primary)]">
+              {formatPercent(metrics.falsePositiveRate)}
+            </span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+              Falsos Positivos
+            </span>
           </div>
+        </div>
 
-          {/* Monto promedio */}
-          <div style={metricCardStyle}>
-            <div style={metricInfoStyle}>
-              <span style={metricValueStyle}>{formatCurrency(metrics.averageAmount)}</span>
-              <span style={metricLabelStyle}>Monto Promedio</span>
-            </div>
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="text-xl font-extrabold tabular-nums tracking-tight text-[var(--text-primary)]">
+              {formatCurrency(metrics.averageAmount)}
+            </span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+              Monto Promedio
+            </span>
           </div>
+        </div>
 
-          {/* Total analizadas */}
-          <div style={metricCardStyle}>
-            <div style={metricInfoStyle}>
-              <span style={metricValueStyle}>{formatNumber(metrics.totalAnalyzed)}</span>
-              <span style={metricLabelStyle}>Total Analizadas</span>
-            </div>
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="text-xl font-extrabold tabular-nums tracking-tight text-[var(--text-primary)]">
+              {formatNumber(metrics.totalAnalyzed)}
+            </span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+              Total Analizadas
+            </span>
+            <span className="text-[11px] text-[var(--text-secondary)]">
+              {formatNumber(metrics.fraudsDetected)} señaladas ·{' '}
+              {formatCurrency(metrics.protectedAmount)} protegido
+            </span>
           </div>
         </div>
       </section>
 
-      {/* ================================================================
-          GRÁFICOS DE AGREGACIONES — 4 charts
-          ================================================================ */}
+      <section
+        aria-label="Distribución de transacciones"
+        className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+      >
+        <AggregationChart
+          title="Transacciones por Tipo"
+          data={typesRanked.map((t) => ({
+            label: t.type,
+            count: t.count,
+            fraud: t.fraud,
+          }))}
+          showFraudColumn
+        />
 
-      <section aria-label="Distribución de transacciones">
-        <div style={chartsGridStyle}>
-          {/* Por tipo de transacción */}
-          <AggregationChart
-            title="Transacciones por Tipo"
-            data={typesRanked.map((t) => ({
-              label: t.type,
-              count: t.count,
-              fraud: t.fraud,
-            }))}
-            showFraudColumn
-          />
+        <AggregationChart
+          title="Top Ciudades"
+          data={topCities.map((c) => ({
+            label: c.city,
+            count: c.transactionCount,
+            fraud: c.fraudCount,
+          }))}
+          barColor="var(--chart-cyan, #06B6D4)"
+          showFraudColumn
+          maxItems={12}
+        />
 
-          {/* Top ciudades */}
-          <AggregationChart
-            title="Top Ciudades"
-            data={topCities.map((c) => ({
-              label: c.city,
-              count: c.transactionCount,
-            }))}
-            barColor="#06B6D4"
-            maxItems={12}
-          />
-
-          {/* Por canal */}
-          <AggregationChart
-            title="Canal"
-            data={channelsRanked.map((c) => ({
+        <AggregationChart
+          title="Canal"
+          data={channelsRanked.map((c) => {
+            const Icon = CHANNEL_ICONS[c.channel?.toLowerCase()] ?? BarChart3;
+            return {
               label: c.channel,
               count: c.count,
-              icon: getChannelIcon(c.channel),
-            }))}
-            barColor="#818CF8"
-          />
+              fraud: c.fraud,
+              icon: <Icon size={14} className="shrink-0 text-[var(--text-tertiary)]" aria-hidden />,
+            };
+          })}
+          barColor="var(--chart-indigo, #818CF8)"
+          showFraudColumn
+        />
 
-          {/* Fraude por banco */}
-          <AggregationChart
-            title="Fraude por Banco"
-            data={topBanksByFraud.map((b) => ({
-              label: b.bank,
-              count: b.count,
-              fraud: b.fraud,
-              color: b.color,
-            }))}
-            showFraudColumn
-          />
-        </div>
+        <AggregationChart
+          title="Fraude por Banco"
+          data={topBanksByFraud.map((b) => ({
+            label: b.bank,
+            count: b.fraud > 0 ? b.fraud : b.count,
+            fraud: b.fraud,
+            color: b.color,
+          }))}
+          showFraudColumn
+        />
       </section>
     </div>
   );
