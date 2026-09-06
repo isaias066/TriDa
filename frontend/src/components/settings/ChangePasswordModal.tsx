@@ -1,28 +1,20 @@
 // ¿Qué? Modal para cambiar la contraseña del usuario actual.
-// ¿Para qué? Validar contraseña actual/nueva y llamar al backend real (Día 3).
-// ¿Impacto? Se usa en ProfileTab de Settings. Sin setTimeout simulado.
+// ¿Para qué? Validar contraseñas y llamar al backend real con feedback por Toasts de error.
+// ¿Impacto? Se integra con ProfileTab y responde a eventos de forma limpia.
 
 import { useState, type FormEvent } from 'react';
-import { KeyRound, AlertCircle } from 'lucide-react';
+import { KeyRound, AlertCircle, X } from 'lucide-react';
 import { Modal } from '@components/ui/Modal';
 import { Button } from '@components/ui/Button';
 import { PasswordInput } from '@components/auth/PasswordInput';
 import { PasswordStrengthMeter, analyzePassword } from '@components/auth/PasswordStrengthMeter';
 import { changePassword } from '@api/Auth';
 
-// ==============================================================================
-// TYPES
-// ==============================================================================
-
 export interface ChangePasswordModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
-
-// ==============================================================================
-// COMPONENTE
-// ==============================================================================
 
 export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePasswordModalProps) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -33,14 +25,16 @@ export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePassword
   const [currentError, setCurrentError] = useState('');
   const [newError, setNewError] = useState('');
   const [confirmError, setConfirmError] = useState('');
-  const [globalError, setGlobalError] = useState('');
+
+  // Toast interno para errores globales del modal
+  const [toastError, setToastError] = useState<string | null>(null);
 
   const validate = (): boolean => {
     let isValid = true;
     setCurrentError('');
     setNewError('');
     setConfirmError('');
-    setGlobalError('');
+    setToastError(null);
 
     if (!currentPassword) {
       setCurrentError('La contraseña actual es obligatoria');
@@ -78,7 +72,7 @@ export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePassword
     setCurrentError('');
     setNewError('');
     setConfirmError('');
-    setGlobalError('');
+    setToastError(null);
     onClose();
   };
 
@@ -87,7 +81,7 @@ export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePassword
     if (!validate()) return;
 
     setSaving(true);
-    setGlobalError('');
+    setToastError(null);
 
     try {
       await changePassword({
@@ -98,9 +92,8 @@ export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePassword
       onSuccess?.();
       handleClose();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Error al cambiar la contraseña';
-      setGlobalError(message);
+      const message = err instanceof Error ? err.message : 'Error al cambiar la contraseña';
+      setToastError(message);
     } finally {
       setSaving(false);
     }
@@ -129,14 +122,26 @@ export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePassword
         </>
       }
     >
-      <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4 font-sans" noValidate>
-        {globalError && (
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        className="flex flex-col gap-4 font-sans relative"
+        noValidate
+      >
+        {/* Toast interno de error del modal */}
+        {toastError && (
           <div
-            className="flex items-start gap-2 rounded-lg border border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.1)] px-3.5 py-2.5 text-xs font-semibold text-[var(--color-danger)]"
             role="alert"
+            className="flex items-start gap-2.5 rounded-lg border border-rose-500/20 bg-rose-950/80 p-3.5 text-xs font-semibold text-rose-200 animate-slide-in"
           >
-            <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-            <span>{globalError}</span>
+            <AlertCircle size={15} className="mt-0.5 shrink-0 text-rose-400" />
+            <div className="flex-1 leading-normal">{toastError}</div>
+            <button
+              type="button"
+              onClick={() => setToastError(null)}
+              className="rounded-lg p-0.5 text-rose-400 hover:bg-rose-900/30 transition-colors"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 

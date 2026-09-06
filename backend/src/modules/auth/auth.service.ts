@@ -30,6 +30,7 @@ interface FnRegisterRow {
   rol: string;
   estado: boolean;
   fecha_creacion: Date;
+  id_banco: number;
 }
 
 interface FnCambiarContrasenaRow {
@@ -57,6 +58,7 @@ interface FnListarUsuariosRow {
   fecha_creacion: Date;
   ultimo_acceso: Date | null;
   id_usuario_generador: number | null;
+  id_banco: number | null;
 }
 
 // ── Errores de dominio ───────────────────────────────────────
@@ -124,16 +126,19 @@ export const authService = {
   },
 
   // ── REGISTER (solo admin) ──────────────────────────────────
+  // ── REGISTER (solo admin) ──────────────────────────────────
   async register(
     data: {
       nombre_completo: string;
       email: string;
       password: string;
       rol: string;
+      id_banco?: number;
     },
     idGenerador: number,
   ) {
     const hash = await hashPassword(data.password);
+    const idBanco = data.id_banco ?? 1;
 
     try {
       const rows = await prisma.$queryRaw<FnRegisterRow[]>`
@@ -142,7 +147,8 @@ export const authService = {
           ${data.email}::text,
           ${hash}::text,
           ${data.rol}::text,
-          ${idGenerador ? Number(idGenerador) : null}::bigint
+          ${idGenerador ? Number(idGenerador) : null}::integer,
+          ${idBanco}::integer
         )
       `;
 
@@ -155,6 +161,7 @@ export const authService = {
           email: nuevo.email,
           rol: nuevo.rol,
           estado: nuevo.estado,
+          id_banco: nuevo.id_banco ?? idBanco,
         },
       };
     } catch (error: any) {
@@ -331,6 +338,7 @@ export const authService = {
         id_usuario_generador: u.id_usuario_generador
           ? Number(u.id_usuario_generador)
           : null,
+        id_banco: u.id_banco ? Number(u.id_banco) : 1,
       };
     });
   },
