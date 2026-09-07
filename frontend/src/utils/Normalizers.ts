@@ -60,15 +60,6 @@ function buildBankInfo(name?: string | null, id?: string | null, color?: string 
 // NORMALIZERS — BANCOS
 // ==============================================================================
 
-/**
- * Normaliza un banco desde el backend al formato del frontend.
- *
- * ¿Qué? Convierte `BankRaw` con múltiples nombres de campo posibles a `Bank` estable.
- * ¿Para qué? Reemplaza la lógica que estaba en `store/context.js`.
- *
- * @param raw - Banco tal como viene del backend.
- * @returns Banco normalizado.
- */
 export function normalizeBank(raw: BankRaw): Bank {
   return {
     id: raw.codigo ?? raw.codigo_banco ?? String(raw.id_banco ?? UNASSIGNED_BANK_ID),
@@ -86,15 +77,6 @@ export function normalizeBanks(rawList: BankRaw[]): Bank[] {
 // NORMALIZERS — USUARIOS DEL SISTEMA
 // ==============================================================================
 
-/**
- * Normaliza un usuario del sistema desde el backend.
- *
- * ¿Qué? Convierte `SystemUserRaw` (BD) a `SystemUser` (frontend).
- * ¿Para qué? Reemplaza la normalización inline en `settings.jsx`.
- *
- * @param raw - Usuario tal como viene del backend.
- * @returns Usuario normalizado.
- */
 export function normalizeSystemUser(raw: SystemUserRaw): SystemUser {
   const name = raw.nombre_completo ?? 'Usuario sin nombre';
 
@@ -120,18 +102,6 @@ export function normalizeSystemUsers(rawList: SystemUserRaw[]): SystemUser[] {
 // NORMALIZERS — CLIENTES BANCARIOS
 // ==============================================================================
 
-/**
- * Normaliza un cliente bancario desde el backend.
- *
- * ¿Qué? Convierte `BankClientRaw` a `BankClient` con estructura anidada.
- * ¿Para qué? Reemplaza `normalizeClientes()` de `users.jsx`.
- *
- * NOTE: Ya no se genera riesgo con Math.random() (bug del proyecto original).
- *       Si el backend no envía el riesgo real, se muestra 0 y se marca como pendiente.
- *
- * @param raw - Cliente tal como viene del backend.
- * @returns Cliente normalizado.
- */
 export function normalizeBankClient(raw: BankClientRaw): BankClient {
   const name = raw.nombre_completo ?? 'Cliente sin nombre';
 
@@ -159,15 +129,6 @@ export function normalizeBankClients(rawList: BankClientRaw[]): BankClient[] {
 // NORMALIZERS — DISPOSITIVOS
 // ==============================================================================
 
-/**
- * Normaliza un dispositivo desde el backend.
- *
- * ¿Qué? Convierte `DeviceRaw` a `Device` con categoría clasificada.
- * ¿Para qué? Reemplaza `normalizeDispositivos()` de `users.jsx`.
- *
- * @param raw - Dispositivo tal como viene del backend.
- * @returns Dispositivo normalizado.
- */
 export function normalizeDevice(raw: DeviceRaw): Device {
   const type = raw.tipo_dispositivo ?? 'Desconocido';
 
@@ -195,15 +156,6 @@ export function normalizeDevices(rawList: DeviceRaw[]): Device[] {
 // NORMALIZERS — UBICACIONES
 // ==============================================================================
 
-/**
- * Normaliza una ubicación desde el backend.
- *
- * ¿Qué? Convierte `LocationRaw` a `Location` con coordenadas validadas.
- * ¿Para qué? Consumo en el mapa y en detalles de transacciones.
- *
- * @param raw - Ubicación tal como viene del backend.
- * @returns Ubicación normalizada.
- */
 export function normalizeLocation(raw: LocationRaw): Location {
   const lat = toNumber(raw.latitud, 0);
   const lng = toNumber(raw.longitud, 0);
@@ -230,16 +182,6 @@ export function normalizeLocations(rawList: LocationRaw[]): Location[] {
 // NORMALIZERS — TRANSACCIONES
 // ==============================================================================
 
-/**
- * Normaliza una transacción desde el backend.
- *
- * ¿Qué? Convierte `TransactionRaw` a `Transaction` completo con nivel de riesgo calculado.
- * ¿Para qué? Reemplaza `normalize()` de `transactions.jsx` y lógica inline de otros archivos.
- * ¿Impacto? Fuente única de verdad para toda la app.
- *
- * @param raw - Transacción tal como viene del backend.
- * @returns Transacción normalizada.
- */
 export function normalizeTransaction(raw: TransactionRaw): Transaction {
   const score = toNumber(raw.score_riesgo, 0);
   const level = getRiskLevel(score);
@@ -279,15 +221,6 @@ export function normalizeTransactions(rawList: TransactionRaw[]): Transaction[] 
 // NORMALIZERS — ALERTAS
 // ==============================================================================
 
-/**
- * Normaliza una alerta desde el backend.
- *
- * ¿Qué? Convierte `AlertRaw` a `Alert` completo con nivel y estados normalizados.
- * ¿Para qué? Reemplaza `normalizeAlert()` de `alerts.jsx`.
- *
- * @param raw - Alerta tal como viene del backend.
- * @returns Alerta normalizada.
- */
 export function normalizeAlert(raw: AlertRaw): Alert {
   const score = toNumber(raw.score_riesgo, 0);
 
@@ -328,15 +261,6 @@ export function normalizeAlerts(rawList: AlertRaw[]): Alert[] {
   return (rawList ?? []).map(normalizeAlert);
 }
 
-/**
- * Normaliza una alerta al formato simplificado para el Dashboard.
- *
- * ¿Qué? Extrae solo los datos mínimos necesarios para el panel "Alertas Recientes".
- * ¿Para qué? Consumo en Dashboard (evita cargar toda la info de la alerta).
- *
- * @param raw - Alerta tal como viene del backend.
- * @returns Alerta simplificada.
- */
 export function normalizeRecentAlert(raw: AlertRaw): RecentAlert {
   const score = toNumber(raw.score_riesgo, 0);
   const level = raw.nivel_criticidad
@@ -347,12 +271,12 @@ export function normalizeRecentAlert(raw: AlertRaw): RecentAlert {
     id: String(raw.id_alerta),
     timestamp: raw.fecha_generacion ?? raw.fecha ?? raw.timestamp ?? new Date().toISOString(),
     description:
+      raw.factores_sospechosos ??
       raw.descripcion ??
       raw.mensaje ??
-      raw.factores_sospechosos ??
       'Actividad sospechosa detectada',
     amount: raw.monto !== undefined ? toNumber(raw.monto) : null,
-    origin: raw.origen ?? raw.tipo ?? raw.categoria ?? null,
+    origin: raw.cliente ?? raw.banco ?? raw.tipo_transaccion ?? null,
     level,
     color: getRiskColorFromScore(score),
   };

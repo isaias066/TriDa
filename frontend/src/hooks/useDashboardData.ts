@@ -1,6 +1,6 @@
 // ¿Qué? Hook que gestiona toda la carga de datos del Dashboard principal.
-// ¿Para qué? Centralizar la consulta y refresco de métricas, alertas y estado en vivo.
-// ¿Impacto? Trae las 15 alertas sin truncar y el TPS/latencia reales del backend.
+// ¿Para qué? Centralizar estadísticas, alertas, estado live y detección infalible de nuevas alertas en tiempo real.
+// ¿Impacto? Expone una cola de notificaciones en vivo para alertar fraudes críticos de forma inmediata.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDashboardData } from '@api/Dashboard';
@@ -8,8 +8,8 @@ import { get } from '@api/Client';
 import type { DashboardStats, RecentAlert, SelectedBankId } from '@app-types';
 import { ALL_BANKS_ID } from '@app-types';
 
-const DEFAULT_AUTO_REFRESH_MS = 30_000;
-const LIVE_POLLING_MS = 10_000;
+const DEFAULT_AUTO_REFRESH_MS = 10_000; // 10s para reaccionar rápido al simulador
+const LIVE_POLLING_MS = 8_000;
 
 const EMPTY_STATS: DashboardStats = {
   totalTransactions: 0,
@@ -59,7 +59,9 @@ export interface UseDashboardDataOptions {
 export interface UseDashboardDataResult {
   stats: DashboardStats;
   recentAlerts: RecentAlert[];
-  liveStatus: LiveStatus; // ← Propiedad requerida por DashboardPage.tsx
+  liveStatus: LiveStatus;
+  liveAlertToasts: RecentAlert[];
+  dismissLiveAlertToast: (id: string | number) => void;
   loading: boolean;
   refreshing: boolean;
   error: string | null;
@@ -72,7 +74,7 @@ export function useDashboardData(
   options: UseDashboardDataOptions = {},
 ): UseDashboardDataResult {
   const {
-    autoRefresh = false,
+    autoRefresh = true,
     autoRefreshMs = DEFAULT_AUTO_REFRESH_MS,
     enabled = true,
     alertsLimit = 15,
@@ -81,13 +83,21 @@ export function useDashboardData(
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>(EMPTY_LIVE_STATUS);
+  const [liveAlertToasts, setLiveAlertToasts] = useState<RecentAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Referencias para evitar problemas de stale closure
+  const previousAlertIdsRef = useRef<Set<string>>(new Set<string>());
+  const isFirstLoadRef = useRef<boolean>(true);
   const intervalRef = useRef<number | null>(null);
   const liveIntervalRef = useRef<number | null>(null);
+
+  const dismissLiveAlertToast = useCallback((id: string | number) => {
+    setLiveAlertToasts((prev) => prev.filter((a) => String(a.id) !== String(id)));
+  }, []);
 
   const loadData = useCallback(
     async (isRefresh: boolean = false): Promise<void> => {
@@ -103,6 +113,32 @@ export function useDashboardData(
           bankId,
           alertsLimit,
         );
+
+        if (!isFirstLoadRef.current && newAlerts.length > 0) {
+          const newOnes = newAlerts.filter((a) => !previousAlertIdsRef.current.has(String(a.id)));
+
+          if (newOnes.length > 0) {
+            // Acepta alertas Críticas, Altas y Medias
+            const notifyList = newOnes.filter((a) => {
+              const lvl = String(a.level ?? '').toLowerCase();
+              return (
+                lvl.includes('crit') ||
+                lvl.includes('high') ||
+                lvl.includes('medium') ||
+                lvl.includes('alt')
+              );
+            });
+
+            if (notifyList.length > 0) {
+              setLiveAlertToasts((prev) => [...notifyList, ...prev].slice(0, 3));
+            }
+          }
+        }
+
+        // Actualizar el set de IDs conocidos con todos los que llegaron
+        newAlerts.forEach((a) => previousAlertIdsRef.current.add(String(a.id)));
+        isFirstLoadRef.current = false;
+
         setStats(newStats);
         setRecentAlerts(newAlerts);
         setLastUpdated(new Date());
@@ -125,7 +161,7 @@ export function useDashboardData(
         setLiveStatus(data);
       }
     } catch {
-      // Si el endpoint no responde temporalmente, se mantiene el último estado conocido
+      // Ignorar fallos transitorios
     }
   }, [bankId]);
 
@@ -137,6 +173,8 @@ export function useDashboardData(
     }
 
     let cancelled = false;
+    isFirstLoadRef.current = true;
+    previousAlertIdsRef.current.clear();
 
     const fetchInitial = async (): Promise<void> => {
       setLoading(true);
@@ -148,6 +186,11 @@ export function useDashboardData(
           fetchLiveStatus(),
         ]);
         if (!cancelled) {
+          dashboardResult.recentAlerts.forEach((a) =>
+            previousAlertIdsRef.current.add(String(a.id)),
+          );
+          isFirstLoadRef.current = false;
+
           setStats(dashboardResult.stats);
           setRecentAlerts(dashboardResult.recentAlerts);
           setLastUpdated(new Date());
@@ -171,7 +214,7 @@ export function useDashboardData(
     };
   }, [bankId, enabled, alertsLimit, fetchLiveStatus]);
 
-  // Auto-refresh de estadísticas generales
+  // Auto-refresh de datos cada 10 segundos
   useEffect(() => {
     if (!autoRefresh || !enabled) return;
 
@@ -187,7 +230,7 @@ export function useDashboardData(
     };
   }, [autoRefresh, autoRefreshMs, enabled, loadData]);
 
-  // Polling del estado en vivo (cada 10s)
+  // Polling del estado live cada 8 segundos
   useEffect(() => {
     if (!enabled) return;
 
@@ -203,7 +246,7 @@ export function useDashboardData(
     };
   }, [enabled, fetchLiveStatus]);
 
-  // Pausar polling cuando la pestaña no esté visible
+  // Pausar y reanudar con visibilidad de pestaña
   useEffect(() => {
     if (!autoRefresh || !enabled) return;
 
@@ -241,6 +284,8 @@ export function useDashboardData(
     stats,
     recentAlerts,
     liveStatus,
+    liveAlertToasts,
+    dismissLiveAlertToast,
     loading,
     refreshing,
     error,

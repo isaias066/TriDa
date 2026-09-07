@@ -1,6 +1,6 @@
 // ¿Qué? Métricas y agregaciones analíticas alineadas al schema TriDa + KPIs derivados.
-// ¿Para qué? Completar tasa de detección, FP%, monto protegido y fraudes por dimensión.
-// ¿Impacto? AnalyticsPage deja de mostrar ceros por campos ausentes en fn_analytics_metricas.
+// ¿Para qué? Calcular tasa de detección y falsos positivos reales sobre el total analizado.
+// ¿Impacto? Corrige la división errónea sobre labeled que forzaba 95.5%.
 
 import { prisma } from "../../db/prisma.js";
 
@@ -89,35 +89,23 @@ export const analyticsService = {
     const totalAnalizadas = num(r.total_analizadas);
     const fraudesDetectados = num(r.fraudes_detectados);
     const fpCount = num(r.falsos_positivos);
-    const vpCount = num(r.verdaderos_positivos);
 
-    // Si no hay validaciones aún: aproximación operativa
-    // detección = (alertadas+bloqueadas) / total
-    // FP% = 0 hasta que existan validaciones
-    const labeled = vpCount + fpCount;
+    // ── CÁLCULOS BANCARIOS REALES SOBRE EL TOTAL DE TRANSACCIONES ANALIZADAS ──
     const tasaDeteccion =
-      labeled > 0
-        ? (vpCount / labeled) * 100
-        : totalAnalizadas > 0
-          ? (fraudesDetectados / totalAnalizadas) * 100
-          : 0;
+      totalAnalizadas > 0 ? (fraudesDetectados / totalAnalizadas) * 100 : 0;
 
     const tasaFalsosPositivos =
-      labeled > 0
-        ? (fpCount / labeled) * 100
-        : fraudesDetectados > 0
-          ? (fpCount / fraudesDetectados) * 100
-          : 0;
+      totalAnalizadas > 0 ? (fpCount / totalAnalizadas) * 100 : 0;
 
     return {
       total_analizadas: totalAnalizadas,
       monto_promedio: num(r.monto_promedio),
       total_fraude: num(r.total_fraude),
       fraudes_detectados: fraudesDetectados,
-      falsos_positivos: tasaFalsosPositivos, // % para el FE (nombre legacy)
+      falsos_positivos: Number(tasaFalsosPositivos.toFixed(1)),
       falsos_positivos_count: fpCount,
-      tasa_deteccion: tasaDeteccion,
-      tasa_falsos_positivos: tasaFalsosPositivos,
+      tasa_deteccion: Number(tasaDeteccion.toFixed(1)),
+      tasa_falsos_positivos: Number(tasaFalsosPositivos.toFixed(1)),
       monto_protegido: num(r.monto_protegido),
       tiempo_promedio_respuesta: num(r.tiempo_promedio_respuesta),
       bloqueadas: num(r.bloqueadas),

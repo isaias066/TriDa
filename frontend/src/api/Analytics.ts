@@ -37,18 +37,32 @@ function normalizeAnalyticsMetrics(raw: AnalyticsMetricsRaw | null | undefined):
 
   const r = raw as Record<string, unknown>;
 
+  const totalAnalyzed = toNumber(r.total_analizadas ?? r.total ?? r.count, 0);
+  const fraudsDetected = toNumber(r.fraudes_detectados ?? r.total_fraude ?? r.fraud_count, 0);
+  const falsePositivesCount = toNumber(r.falsos_positivos, 0);
+
+  // ── CÁLCULO DE TASA DE DETECCIÓN REAL (% de fraude sobre el total) ──
+  let detectionRate = toNumber(r.tasa_deteccion ?? r.detection_rate, -1);
+  if (detectionRate < 0) {
+    detectionRate = totalAnalyzed > 0 ? (fraudsDetected / totalAnalyzed) * 100 : 0;
+  }
+
+  // ── CÁLCULO DE TASA DE FALSOS POSITIVOS REAL ──
+  // Si el backend envía 'tasa_falsos_positivos', se usa.
+  // Si envía el conteo 'falsos_positivos' (ej. 2), se calcula sobre el total de fraudes/alertas.
+  let falsePositiveRate = toNumber(r.tasa_falsos_positivos ?? r.false_positive_rate, -1);
+  if (falsePositiveRate < 0) {
+    falsePositiveRate = fraudsDetected > 0 ? (falsePositivesCount / fraudsDetected) * 100 : 0;
+  }
+
   return {
-    detectionRate: toNumber(r.tasa_deteccion ?? r.detection_rate, 0),
-    // Preferir tasa explícita; no usar conteo crudo como %
-    falsePositiveRate: toNumber(
-      r.tasa_falsos_positivos ?? r.false_positive_rate ?? r.falsos_positivos,
-      0,
-    ),
+    detectionRate: Number(detectionRate.toFixed(1)),
+    falsePositiveRate: Number(falsePositiveRate.toFixed(1)),
     averageAmount: toNumber(r.monto_promedio ?? r.avg_amount ?? r.avg, 0),
-    totalAnalyzed: toNumber(r.total_analizadas ?? r.total ?? r.count, 0),
+    totalAnalyzed,
     averageResponseTime: toNumber(r.tiempo_promedio_respuesta, 0),
     protectedAmount: toNumber(r.monto_protegido, 0),
-    fraudsDetected: toNumber(r.fraudes_detectados ?? r.total_fraude ?? r.fraud_count, 0),
+    fraudsDetected,
   };
 }
 

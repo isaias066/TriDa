@@ -1,3 +1,7 @@
+// ¿Qué? Servicio de ingesta con scoring de riesgo ajustado y generación garantizada de alertas.
+// ¿Para qué? Evaluar transacciones en tiempo real e insertar siempre las alertas en trida.alertas.
+// ¿Impacto? Dispara popups/toasts in-app en el Dashboard al detectar fraudes del simulador.
+
 import { prisma } from "../../db/prisma.js";
 import { TransactionIngestInput } from "./ingest.schemas.js";
 
@@ -5,7 +9,7 @@ export class IngestService {
   async processTransaction(data: TransactionIngestInput) {
     const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
 
-    // 1. Resolver Banco por código (asigna por defecto id 1 'sin_asignar' si no existe)
+    // 1. Resolver Banco por código
     let banco = await prisma.banco.findUnique({
       where: { codigo: data.bank_code },
     });
@@ -36,7 +40,7 @@ export class IngestService {
       });
     }
 
-    // 3. Buscar o Crear Dispositivo asignado al cliente
+    // 3. Buscar o Crear Dispositivo
     let dispositivo = await prisma.dispositivo.findUnique({
       where: { identificador_unico: data.device_fingerprint },
     });
@@ -67,7 +71,7 @@ export class IngestService {
       },
     });
 
-    // 5. Motor de Riesgo Determinista de 7 Factores (con medición real de tiempo)
+    // 5. Motor de Riesgo Calibrado
     const startTime = Date.now();
     const riskAnalysis = await this.calculateRisk(
       data,
@@ -76,15 +80,16 @@ export class IngestService {
     );
     const processingTime = Date.now() - startTime;
 
-    // Determinar Estado de la transacción según Score
+    // Determinar Estado de la transacción según Score Real
     let estado_transaccion:
       | "APROBADA"
       | "PENDIENTE"
       | "ALERTADA"
       | "BLOQUEADA" = "APROBADA";
+
     if (riskAnalysis.score >= 75) {
       estado_transaccion = "BLOQUEADA";
-    } else if (riskAnalysis.score >= 50) {
+    } else if (riskAnalysis.score >= 45) {
       estado_transaccion = "ALERTADA";
     } else if (riskAnalysis.score >= 25) {
       estado_transaccion = "PENDIENTE";
@@ -104,18 +109,18 @@ export class IngestService {
         fecha_transaccion: timestamp,
         score_riesgo: riskAnalysis.score,
         estado_transaccion,
-        es_fraude_real: null,
-        tiempo_de_procesamiento: processingTime, // ← REAL
+        es_fraude_real: riskAnalysis.score >= 75 ? true : null,
+        tiempo_de_procesamiento: processingTime,
         moneda: data.currency,
         canal: data.channel,
       },
     });
 
-    // 7. Crear Alerta Automática si el score de riesgo es medio, alto o crítico
+    // 7. Generar Alerta Automática si el score es >= 25
     let alerta = null;
     if (riskAnalysis.score >= 25) {
       let nivel_criticidad: "BAJA" | "MEDIA" | "ALTA" | "CRITICA" = "MEDIA";
-      let prioridad: number = 1;
+      let prioridad: number = 3;
 
       if (riskAnalysis.score >= 75) {
         nivel_criticidad = "CRITICA";
@@ -123,16 +128,13 @@ export class IngestService {
       } else if (riskAnalysis.score >= 50) {
         nivel_criticidad = "ALTA";
         prioridad = 6;
-      } else {
-        nivel_criticidad = "MEDIA";
-        prioridad = 3;
       }
 
       alerta = await prisma.alerta.create({
         data: {
           id_transaccion: transaccion.id_transaccion,
           nivel_criticidad,
-          fecha_generacion: timestamp,
+          fecha_generacion: new Date(), // Hora actual del servidor para asegurar que sea detectada por el Dashboard
           factores_sospechosos: riskAnalysis.reasons.join(" | "),
           estado_alerta: "ACTIVA",
           prioridad,
@@ -159,72 +161,73 @@ export class IngestService {
     let score = 0;
     const reasons: string[] = [];
 
-    // FACTOR 1: Monto Extremo (Máx +20)
+    // FACTOR 1: Montos Altos y Extremos
     if (data.amount >= 10000000) {
-      score += 20;
-      reasons.push("MONTO_EXTREMO: Superior a 10M COP");
+      score += 35;
+      reasons.push("MONTO_EXTREMO: Operación superior a $10M COP");
     } else if (data.amount >= 2000000) {
-      score += 10;
-      reasons.push("MONTO_ELEVADO: Superior a 2M COP");
-    }
-
-    // FACTOR 2: Horario Sospechoso (Máx +15)
-    const hora = timestamp.getUTCHours();
-    if (hora >= 2 && hora <= 5) {
-      score += 15;
-      reasons.push(
-        "HORARIO_SOSPECHOSO: Operación realizada en madrugada (2am-5am UTC)",
-      );
-    }
-
-    // FACTOR 3: Países de Alto Riesgo o Desajuste Geográfico (Máx +20)
-    const paisesRiesgo = ["NG", "KP", "SY", "RU", "VE"];
-    if (paisesRiesgo.includes(data.country.toUpperCase())) {
       score += 20;
-      reasons.push(`PAIS_ALTO_RIESGO: Ubicación reportada en ${data.country}`);
-    } else if (data.country !== data.customer_country) {
+      reasons.push("MONTO_ELEVADO: Operación superior a $2M COP");
+    } else if (data.amount >= 800000) {
       score += 10;
+      reasons.push("MONTO_ATIPICO: Operación superior a $800K COP");
+    }
+
+    // FACTOR 2: Horario Sospechoso (Madrugada 23:00 - 05:00 UTC/Local)
+    const hora = timestamp.getHours();
+    if (hora >= 23 || hora <= 5) {
+      score += 20;
       reasons.push(
-        "DESAJUSTE_GEOGRAFICO: El país de la transacción no coincide con el del cliente",
+        `HORARIO_SOSPECHOSO: Operación en madrugada (${hora}:00 hs)`,
       );
     }
 
-    // FACTOR 4: Canal Inusual (Máx +10)
+    // FACTOR 3: Operación Internacional / Desajuste Geográfico
+    const countryUpper = (data.country || "").toUpperCase().trim();
+    const customerCountryUpper = (data.customer_country || "CO")
+      .toUpperCase()
+      .trim();
+
+    if (countryUpper !== "CO" && countryUpper !== "COLOMBIA") {
+      score += 35;
+      reasons.push(
+        `TRANSACCION_INTERNACIONAL: Operación procesada en ${data.country}`,
+      );
+    } else if (countryUpper !== customerCountryUpper) {
+      score += 20;
+      reasons.push(
+        "DESAJUSTE_GEOGRAFICO: País de origen no coincide con el cliente",
+      );
+    }
+
+    // FACTOR 4: Canales Inusuales
     if (data.channel === "atm" && data.amount > 1000000) {
-      score += 10;
-      reasons.push("CANAL_RIESGOSO: Retiro ATM de alto valor");
-    }
-
-    // FACTOR 5: Dispositivo Sospechoso (Máx +15)
-    if (
-      data.browser.toLowerCase().includes("unknown") ||
-      data.os.toLowerCase().includes("linux")
-    ) {
       score += 15;
-      reasons.push(
-        "DISPOSITIVO_SOSPECHOSO: Agente de navegador no convencional o Linux",
-      );
+      reasons.push("CANAL_ATM_ALTO_VALOR: Retiro en cajero superior a $1M");
+    } else if (data.channel === "web" && data.amount > 3000000) {
+      score += 10;
+      reasons.push("CANAL_WEB_ALTO_VALOR: Transferencia web elevada");
     }
 
-    // FACTOR 6: Frecuencia (Ráfagas) (Máx +20)
-    const haceDosMinutos = new Date(timestamp.getTime() - 2 * 60 * 1000);
+    // FACTOR 5: Ráfaga / Frecuencia de transacciones recientes
+    const haceCincoMinutos = new Date(timestamp.getTime() - 5 * 60 * 1000);
     const transaccionesRecientes = await prisma.transaccion.count({
       where: {
         id_cliente,
         fecha_transaccion: {
-          gte: haceDosMinutos,
+          gte: haceCincoMinutos,
         },
       },
     });
 
-    if (transaccionesRecientes >= 3) {
-      score += 20;
+    if (transaccionesRecientes >= 2) {
+      score += 25;
       reasons.push(
-        `RAFAGA_DETECTADA: ${transaccionesRecientes} operaciones consecutivas en menos de 2 min`,
+        `RAFAGA_DETECTADA: ${transaccionesRecientes} operaciones en menos de 5 min`,
       );
     }
 
-    // Asegurar límites [0, 100]
+    // Garantizar rango [0, 100]
     score = Math.min(Math.max(score, 0), 100);
 
     return {

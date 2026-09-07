@@ -69,17 +69,7 @@ export {
 // TRANSACCIONES
 // ==============================================================================
 
-export {
-  // Endpoint principal
-  getTransactions,
-
-  // Contadores derivados
-  getTransactionsCount,
-  getBlockedTransactionsCount,
-  getFraudTransactionsCount,
-  getTotalAmount,
-  getCriticalAlertsCount,
-} from './Transacciones';
+export { getTransactionsPage, getTransactions, getTransactionsCount } from './Transacciones';
 
 // ==============================================================================
 // ALERTAS
@@ -89,6 +79,8 @@ export {
   // Endpoints principales
   getAlerts,
   getRecentAlerts,
+  getAlertsPage,
+  getAlertLevelCounts,
 
   // Contadores derivados
   getAlertsCount,
@@ -117,10 +109,8 @@ export {
 } from './Dispositivos';
 
 // ==============================================================================
-// USUARIOS DEL SISTEMA (helpers derivados)
+// USUARIOS DEL SISTEMA
 // ==============================================================================
-// NOTE: `getSystemUsers` y `register` (como `createSystemUser`) ya están
-//        re-exportados desde Auth.ts. Aquí van solo los helpers derivados.
 
 export {
   getSystemUsersCount,
@@ -129,6 +119,8 @@ export {
   getSystemUsersByRole,
   getActiveSystemUsers,
   getSystemUsersNeverLogged,
+  updateSystemUserStatus,
+  updateSystemUserRole,
 } from './Usuarios';
 
 // ==============================================================================

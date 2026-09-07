@@ -122,6 +122,7 @@ export function AnalyticsPage() {
         aria-label="Métricas del modelo de IA"
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
       >
+        {/* Tasa de Detección */}
         <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
           <ScoreRing
             score={metrics.detectionRate}
@@ -139,11 +140,12 @@ export function AnalyticsPage() {
           </div>
         </div>
 
+        {/* Tasa de Falsos Positivos (Calculada Real) */}
         <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
           <ScoreRing
             score={metrics.falsePositiveRate}
             size="md"
-            color="#FBBF24"
+            color={metrics.falsePositiveRate > 15 ? '#F59E0B' : '#34D399'}
             scoreFormat="compact"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -156,6 +158,7 @@ export function AnalyticsPage() {
           </div>
         </div>
 
+        {/* Monto Promedio */}
         <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-xl font-extrabold tabular-nums tracking-tight text-[var(--text-primary)]">
@@ -167,6 +170,7 @@ export function AnalyticsPage() {
           </div>
         </div>
 
+        {/* Total Analizadas */}
         <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <span className="text-xl font-extrabold tabular-nums tracking-tight text-[var(--text-primary)]">

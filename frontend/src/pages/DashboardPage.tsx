@@ -1,10 +1,10 @@
 // ¿Qué? Página principal del Dashboard del sistema TriDa.
-// ¿Para qué? Renderizar métricas, alertas recientes y panel de distribución de riesgo.
-// ¿Impacto? Integra componentes visuales optimizados, Skeletons de carga y estado en vivo real.
+// ¿Para qué? Renderizar métricas, alertas recientes y panel de distribución de riesgo con soporte para Toasts de fraude en vivo.
+// ¿Impacto? Alertas críticas inyectadas por el simulador se notifican instantáneamente arriba a la derecha.
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ShieldAlert, X } from 'lucide-react';
 import { useBank } from '@context/BankContext';
 import { useDashboardData } from '@hooks/useDashboardData';
 import { useAlerts } from '@hooks/useAlerts';
@@ -13,6 +13,8 @@ import { useFormattedClock } from '@hooks/useClock';
 import { Button, EmptyState, Skeleton } from '@components/ui';
 import { StatsCardsGrid, AlertsByLevelRings, RecentAlertsPanel } from '@components/dashboard';
 import type { RiskLevel } from '@constants/Risk';
+import { RISK_COLORS } from '@constants/Risk';
+import { formatCurrency } from '@utils/Formatters';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -27,6 +29,8 @@ export function DashboardPage() {
     stats,
     recentAlerts,
     liveStatus,
+    liveAlertToasts,
+    dismissLiveAlertToast,
     loading: dashboardLoading,
     refreshing,
     error: dashboardError,
@@ -34,7 +38,7 @@ export function DashboardPage() {
     refetch: refetchDashboard,
   } = useDashboardData(selectedBank, {
     autoRefresh: true,
-    autoRefreshMs: 30_000,
+    autoRefreshMs: 15000, // Acelerado a 15s para mayor dinamismo del simulador
   });
 
   const { counts: alertCounts, loading: alertsLoading } = useAlerts(selectedBank);
@@ -69,7 +73,21 @@ export function DashboardPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Determinar estado visual del badge LIVE
+  // Expiración automática de notificaciones de fraude (7 segundos en pantalla)
+  useEffect(() => {
+    if (liveAlertToasts.length === 0) return;
+
+    const timer = setTimeout(() => {
+      // Descartar el toast más antiguo (el último del array)
+      const oldest = liveAlertToasts[liveAlertToasts.length - 1];
+      if (oldest) {
+        dismissLiveAlertToast(oldest.id);
+      }
+    }, 7000);
+
+    return () => clearTimeout(timer);
+  }, [liveAlertToasts, dismissLiveAlertToast]);
+
   const isLive = liveStatus.isLive;
   const isStandby = liveStatus.status === 'STANDBY';
 
@@ -118,7 +136,68 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-6 p-6 font-sans md:gap-7 md:p-8">
+    <div className="flex min-h-full flex-col gap-6 p-6 font-sans md:gap-7 md:p-8 relative">
+      {/* ── CONTENEDOR FLOTANTE DE TOASTS DE FRAUDE EN VIVO ── */}
+      <div className="fixed right-6 top-6 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+        {liveAlertToasts.map((toast) => {
+          const isCritical = String(toast.level).toUpperCase().includes('CRIT');
+          const color = isCritical ? RISK_COLORS.critical : RISK_COLORS.high;
+
+          return (
+            <div
+              key={toast.id}
+              className="pointer-events-auto flex items-start gap-3 rounded-xl border border-rose-500/40 bg-[#160b0f]/95 p-4 text-xs shadow-2xl backdrop-blur-md transition-all duration-300 ease-out"
+              style={{
+                boxShadow: `0 10px 30px rgba(239, 68, 68, 0.25), 0 0 1px 1px rgba(239, 68, 68, 0.4)`,
+              }}
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-400">
+                <ShieldAlert size={18} className="animate-pulse" />
+              </div>
+
+              <div className="flex-1 flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="font-extrabold uppercase tracking-wide text-[11px]"
+                    style={{ color }}
+                  >
+                    {isCritical ? '¡Fraude Crítico!' : 'Alerta de Riesgo'}
+                  </span>
+                  <span className="font-mono text-[10px] font-bold text-rose-300 bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-700/50">
+                    #{String(toast.id).padStart(4, '0')}
+                  </span>
+                </div>
+
+                <p className="m-0 text-rose-100 font-semibold leading-snug">
+                  {toast.description || 'Patrón anómalo detectado por el motor'}
+                </p>
+
+                <div className="flex items-center gap-2 mt-1 text-[11px] font-bold text-rose-200">
+                  <span>{formatCurrency(toast.amount ?? 0)}</span>
+                  {toast.origin && (
+                    <>
+                      <span className="text-rose-500/50">·</span>
+                      <span className="text-[10px] text-rose-300/80 font-normal truncate max-w-[140px]">
+                        {toast.origin}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => dismissLiveAlertToast(toast.id)}
+                className="rounded-lg p-1 text-rose-400 hover:bg-rose-900/40 transition-colors"
+                aria-label="Cerrar notificación"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="m-0 text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
@@ -139,7 +218,6 @@ export function DashboardPage() {
             {timeWithSeconds}
           </span>
 
-          {/* Badge de estado en vivo (datos reales, sin Math.random) */}
           <span
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[10px] font-bold ${
               isLive
