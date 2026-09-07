@@ -1,0 +1,219 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["trida"]
+}
+
+model Banco {
+  id_banco       Int           @id @default(autoincrement())
+  codigo         String        @unique @db.VarChar(50)
+  nombre         String        @db.VarChar(120)
+  color          String        @db.VarChar(20)
+  estado         Boolean       @default(true)
+  fecha_creacion DateTime      @default(now()) @db.Timestamptz(6)
+  clientes       Cliente[]
+  transacciones  Transaccion[]
+
+  @@index([codigo], map: "idx_bancos_codigo")
+  @@map("bancos")
+  @@schema("trida")
+}
+
+model Cliente {
+  id_cliente      Int           @id @default(autoincrement())
+  id_banco        Int           @default(1)
+  nombre_completo String        @db.VarChar(150)
+  email           String        @unique @db.VarChar(254)
+  telefono        String        @db.VarChar(20)
+  fecha_registro  DateTime      @default(now()) @db.Timestamptz(6)
+  estado          Boolean       @default(true)
+  pais            String        @db.VarChar(100)
+  ciudad          String        @db.VarChar(100)
+  banco           Banco         @relation(fields: [id_banco], references: [id_banco])
+  dispositivos    Dispositivo[]
+  transacciones   Transaccion[]
+
+  @@index([ciudad], map: "idx_clientes_ciudad")
+  @@index([email(ops: raw("gin_trgm_ops"))], map: "idx_clientes_email_trgm", type: Gin)
+  @@index([estado], map: "idx_clientes_estado")
+  @@index([id_banco], map: "idx_clientes_id_banco")
+  @@index([nombre_completo(ops: raw("gin_trgm_ops"))], map: "idx_clientes_nombre_trgm", type: Gin)
+  @@map("clientes")
+  @@schema("trida")
+}
+
+model UsuarioSistema {
+  id_usuario           Int              @id @default(autoincrement())
+  nombre_completo      String           @db.VarChar(150)
+  email                String           @unique @db.VarChar(254)
+  password_hash        String
+  rol                  String           @db.VarChar(30)
+  fecha_creacion       DateTime         @default(now()) @db.Timestamptz(6)
+  ultimo_acceso        DateTime?        @db.Timestamptz(6)
+  estado               Boolean          @default(true)
+  id_usuario_generador Int?
+  alertas              Alerta[]
+  logs_auditoria       LogAuditoria[]
+  reportes             Reporte[]
+  generador            UsuarioSistema?  @relation("UsuariosGenerados", fields: [id_usuario_generador], references: [id_usuario], onDelete: NoAction, onUpdate: NoAction)
+  generados            UsuarioSistema[] @relation("UsuariosGenerados")
+  validaciones         Validacion[]
+
+  @@index([estado], map: "idx_usuarios_estado")
+  @@index([rol], map: "idx_usuarios_rol")
+  @@map("usuarios_sistemas")
+  @@schema("trida")
+}
+
+model Dispositivo {
+  id_dispositivo      Int                  @id @default(autoincrement())
+  id_cliente          Int
+  tipo_dispositivo    String               @db.VarChar(50)
+  identificador_unico String               @unique @db.VarChar(255)
+  sistema_operativo   String               @db.VarChar(100)
+  navegador           String               @db.VarChar(100)
+  fecha_primer_uso    DateTime             @default(now()) @db.Timestamptz(6)
+  fecha_ultimo_uso    DateTime             @default(now()) @db.Timestamptz(6)
+  cliente             Cliente              @relation(fields: [id_cliente], references: [id_cliente])
+  ubicaciones         HistoricoUbicacion[]
+  transacciones       Transaccion[]
+
+  @@index([id_cliente], map: "idx_dispositivos_id_cliente")
+  @@map("dispositivos")
+  @@schema("trida")
+}
+
+model HistoricoUbicacion {
+  id_ubicacion   Int           @id @default(autoincrement())
+  id_dispositivo Int
+  direccion_ip   String        @db.Inet
+  pais           String        @db.VarChar(100)
+  ciudad         String        @db.VarChar(100)
+  latitud        Decimal?      @db.Decimal(9, 6)
+  longitud       Decimal?      @db.Decimal(9, 6)
+  fecha_registro DateTime      @default(now()) @db.Timestamptz(6)
+  dispositivo    Dispositivo   @relation(fields: [id_dispositivo], references: [id_dispositivo])
+  transacciones  Transaccion[]
+
+  @@index([ciudad], map: "idx_ubicacion_ciudad")
+  @@index([id_dispositivo], map: "idx_ubicacion_id_dispositivo")
+  @@map("historico_de_ubicacion")
+  @@schema("trida")
+}
+
+model Transaccion {
+  id_transaccion          Int                @id @default(autoincrement())
+  id_cliente              Int
+  id_dispositivo          Int
+  id_ubicacion            Int
+  id_banco                Int                @default(1)
+  tipo_transaccion        String             @db.VarChar(50)
+  monto                   Decimal            @db.Decimal(15, 2)
+  cuenta_origen           String             @db.VarChar(30)
+  cuenta_destino          String             @db.VarChar(30)
+  fecha_transaccion       DateTime           @default(now()) @db.Timestamptz(6)
+  score_riesgo            Decimal?           @db.Decimal(5, 1)
+  estado_transaccion      String             @default("PENDIENTE") @db.VarChar(20)
+  es_fraude_real          Boolean?
+  tiempo_de_procesamiento Int                @default(0)
+  moneda                  String             @default("COP") @db.Char(3)
+  canal                   String             @default("web") @db.VarChar(20)
+  alertas                 Alerta[]
+  banco                   Banco              @relation(fields: [id_banco], references: [id_banco])
+  cliente                 Cliente            @relation(fields: [id_cliente], references: [id_cliente])
+  dispositivo             Dispositivo        @relation(fields: [id_dispositivo], references: [id_dispositivo])
+  ubicacion               HistoricoUbicacion @relation(fields: [id_ubicacion], references: [id_ubicacion])
+
+  @@index([id_banco, estado_transaccion, score_riesgo], map: "idx_transacciones_banco_estado_score")
+  @@index([id_banco, fecha_transaccion(sort: Desc)], map: "idx_transacciones_banco_fecha")
+  @@index([canal], map: "idx_transacciones_canal")
+  @@index([estado_transaccion], map: "idx_transacciones_estado")
+  @@index([fecha_transaccion(sort: Desc)], map: "idx_transacciones_fecha")
+  @@index([id_banco], map: "idx_transacciones_id_banco")
+  @@index([id_cliente], map: "idx_transacciones_id_cliente")
+  @@map("transacciones")
+  @@schema("trida")
+}
+
+model Alerta {
+  id_alerta            Int             @id @default(autoincrement())
+  id_transaccion       Int
+  nivel_criticidad     String          @db.VarChar(10)
+  fecha_generacion     DateTime        @default(now()) @db.Timestamptz(6)
+  factores_sospechosos String?
+  estado_alerta        String          @default("ACTIVA") @db.VarChar(20)
+  prioridad            Int             @default(1) @db.SmallInt
+  id_usuario_asignado  Int?
+  transaccion          Transaccion     @relation(fields: [id_transaccion], references: [id_transaccion])
+  usuarios_sistemas    UsuarioSistema? @relation(fields: [id_usuario_asignado], references: [id_usuario])
+  validaciones         Validacion[]
+
+  @@index([estado_alerta], map: "idx_alertas_estado")
+  @@index([fecha_generacion(sort: Desc)], map: "idx_alertas_fecha")
+  @@index([nivel_criticidad], map: "idx_alertas_nivel_criticidad")
+  @@index([nivel_criticidad, estado_alerta], map: "idx_alertas_nivel_estado")
+  @@map("alertas")
+  @@schema("trida")
+}
+
+model Validacion {
+  id_validacion    Int            @id @default(autoincrement())
+  id_alerta        Int
+  id_usuario       Int
+  clasificacion    String         @db.VarChar(35)
+  comentarios      String?
+  fecha_validacion DateTime       @default(now()) @db.Timestamptz(6)
+  accion_tomada    String?        @db.VarChar(50)
+  alerta           Alerta         @relation(fields: [id_alerta], references: [id_alerta])
+  usuario          UsuarioSistema @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@index([clasificacion], map: "idx_validaciones_clasificacion")
+  @@index([id_alerta], map: "idx_validaciones_id_alerta")
+  @@map("validaciones")
+  @@schema("trida")
+}
+
+model Reporte {
+  id_reporte                Int            @id @default(autoincrement())
+  id_usuario_generador      Int
+  tipo_reporte              String         @db.VarChar(30)
+  fecha_inicio              DateTime       @db.Timestamptz(6)
+  fecha_fin                 DateTime       @db.Timestamptz(6)
+  total_transacciones       Int?
+  total_alertas_generadas   Int?
+  fraudes_detectados        Int?
+  falsos_positivos          Int?
+  tasa_deteccion            Decimal?       @db.Decimal(5, 2)
+  tiempo_promedio_respuesta Decimal?       @db.Decimal(8, 2)
+  monto_protegido           Decimal?       @db.Decimal(20, 2)
+  fecha_generacion          DateTime       @default(now()) @db.Timestamptz(6)
+  ruta_archivo              String
+  generador                 UsuarioSistema @relation(fields: [id_usuario_generador], references: [id_usuario])
+
+  @@map("reportes")
+  @@schema("trida")
+}
+
+model LogAuditoria {
+  id_log           Int            @id @default(autoincrement())
+  id_usuario       Int
+  tipo_accion      String         @db.VarChar(50)
+  entidad_afectada String         @db.VarChar(50)
+  descripcion      String?
+  fecha_accion     DateTime       @default(now()) @db.Timestamptz(6)
+  id_identidad     Int
+  direccion_ip     String         @db.Inet
+  usuario          UsuarioSistema @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@index([fecha_accion(sort: Desc)], map: "idx_logs_fecha_accion")
+  @@index([id_usuario], map: "idx_logs_id_usuario")
+  @@index([tipo_accion], map: "idx_logs_tipo_accion")
+  @@map("logs_auditoria")
+  @@schema("trida")
+}

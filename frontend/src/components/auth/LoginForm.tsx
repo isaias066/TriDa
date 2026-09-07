@@ -116,7 +116,9 @@ export function LoginForm({
       navigate(destination, { replace: true });
     } catch (err) {
       const error = err as Error;
-
+      console.log('🔴 ERROR LOGIN:', err);
+      console.log('🔴 ES ApiError:', err instanceof ApiError);
+      console.log('🔴 STATUS:', err instanceof ApiError ? err.status : 'NO ES APIERROR');
       let errorMessage = 'Error al iniciar sesión. Intenta de nuevo.';
 
       if (err instanceof ApiError) {
