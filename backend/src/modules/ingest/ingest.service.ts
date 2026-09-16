@@ -71,14 +71,15 @@ export class IngestService {
       },
     });
 
-    // 5. Motor de Riesgo Calibrado
-    const startTime = Date.now();
-    const riskAnalysis = await this.calculateRisk(
-      data,
-      cliente.id_cliente,
-      timestamp,
-    );
-    const processingTime = Date.now() - startTime;
+    // 5. Evaluar transacción con Random Forest
+const startTime = Date.now();
+
+const riskAnalysis = await this.calculateRisk(
+  data,
+  timestamp,
+);
+
+const processingTime = Date.now() - startTime;
 
     // Determinar Estado de la transacción según Score Real
     let estado_transaccion:
@@ -151,88 +152,53 @@ export class IngestService {
       nivel_criticidad: alerta?.nivel_criticidad || null,
       factores: riskAnalysis.reasons,
     };
-  }
+    }
 
   private async calculateRisk(
     data: TransactionIngestInput,
-    id_cliente: number,
     timestamp: Date,
   ) {
-    let score = 0;
-    const reasons: string[] = [];
-
-    // FACTOR 1: Montos Altos y Extremos
-    if (data.amount >= 10000000) {
-      score += 35;
-      reasons.push("MONTO_EXTREMO: Operación superior a $10M COP");
-    } else if (data.amount >= 2000000) {
-      score += 20;
-      reasons.push("MONTO_ELEVADO: Operación superior a $2M COP");
-    } else if (data.amount >= 800000) {
-      score += 10;
-      reasons.push("MONTO_ATIPICO: Operación superior a $800K COP");
-    }
-
-    // FACTOR 2: Horario Sospechoso (Madrugada 23:00 - 05:00 UTC/Local)
+    const diaSemana = timestamp.getDay();
     const hora = timestamp.getHours();
-    if (hora >= 23 || hora <= 5) {
-      score += 20;
-      reasons.push(
-        `HORARIO_SOSPECHOSO: Operación en madrugada (${hora}:00 hs)`,
-      );
-    }
 
-    // FACTOR 3: Operación Internacional / Desajuste Geográfico
-    const countryUpper = (data.country || "").toUpperCase().trim();
-    const customerCountryUpper = (data.customer_country || "CO")
-      .toUpperCase()
-      .trim();
+    const iaUrl = process.env.IA_URL || "http://127.0.0.1:5000";
 
-    if (countryUpper !== "CO" && countryUpper !== "COLOMBIA") {
-      score += 35;
-      reasons.push(
-        `TRANSACCION_INTERNACIONAL: Operación procesada en ${data.country}`,
-      );
-    } else if (countryUpper !== customerCountryUpper) {
-      score += 20;
-      reasons.push(
-        "DESAJUSTE_GEOGRAFICO: País de origen no coincide con el cliente",
-      );
-    }
-
-    // FACTOR 4: Canales Inusuales
-    if (data.channel === "atm" && data.amount > 1000000) {
-      score += 15;
-      reasons.push("CANAL_ATM_ALTO_VALOR: Retiro en cajero superior a $1M");
-    } else if (data.channel === "web" && data.amount > 3000000) {
-      score += 10;
-      reasons.push("CANAL_WEB_ALTO_VALOR: Transferencia web elevada");
-    }
-
-    // FACTOR 5: Ráfaga / Frecuencia de transacciones recientes
-    const haceCincoMinutos = new Date(timestamp.getTime() - 5 * 60 * 1000);
-    const transaccionesRecientes = await prisma.transaccion.count({
-      where: {
-        id_cliente,
-        fecha_transaccion: {
-          gte: haceCincoMinutos,
-        },
+    const response = await fetch(`${iaUrl}/predict`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        monto: Number(data.amount),
+        tipo_transaccion: data.type,
+        hora,
+        dia_semana: diaSemana,
+        es_fin_de_semana: [0, 6].includes(diaSemana) ? 1 : 0,
+        es_madrugada: hora >= 23 || hora < 6 ? 1 : 0,
+        tiempo_de_procesamiento: 2,
+        moneda: data.currency,
+        canal: data.channel,
+      }),
     });
 
-    if (transaccionesRecientes >= 2) {
-      score += 25;
-      reasons.push(
-        `RAFAGA_DETECTADA: ${transaccionesRecientes} operaciones en menos de 5 min`,
-      );
+    if (!response.ok) {
+      throw new Error(`La IA respondió con HTTP ${response.status}`);
     }
 
-    // Garantizar rango [0, 100]
-    score = Math.min(Math.max(score, 0), 100);
+const resultado = (await response.json()) as {
+  score_riesgo: number;
+  nivel_riesgo: string;
+  fraude: boolean;
+};
 
-    return {
-      score,
-      reasons: reasons.length > 0 ? reasons : ["COMPORTAMIENTO_NORMAL"],
-    };
-  }
+return {
+  score: Number(resultado.score_riesgo),
+  reasons: [
+    `RANDOM_FOREST: Nivel de riesgo ${resultado.nivel_riesgo}`,
+    ...(resultado.fraude
+      ? ["MODELO_IA: Posible fraude detectado"]
+      : ["MODELO_IA: Comportamiento aparentemente legítimo"]),
+  ],
+};  }
 }
+

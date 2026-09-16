@@ -9,5 +9,8 @@
     "dev:frontend": "pnpm --filter trida-frontend dev",
     "build": "pnpm --recursive build",
     "lint": "pnpm --recursive lint"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }

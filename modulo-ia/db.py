@@ -14,9 +14,9 @@ def obtener_conexion():
 if __name__ == "__main__":
     try:
         conexion = obtener_conexion()
-        print("✅ Conexión exitosa con PostgreSQL")
+        print("¡Conexión exitosa con PostgreSQL!")
         conexion.close()
     except Exception as e:
-        print("❌ Error de conexión:")
+        print("Error de conexión:")
         print(e)
         
