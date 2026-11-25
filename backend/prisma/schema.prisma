@@ -1,0 +1,412 @@
+// backend/prisma/schema.prisma
+// Prisma-supported relational models and indexes are defined here.
+// PostgreSQL checks, partial/expression indexes, rules, triggers, and functions stay in database/schema.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["trida", "public"]
+}
+
+model usuario {
+  id_usuario                       Int       @id @default(autoincrement())
+  nombre_completo                  String    @db.VarChar(150)
+  email                            String    @unique(map: "usuarios_email_key") @db.VarChar(254)
+  password_hash                    String
+  telefono                         String?   @db.VarChar(20)
+  pais                             String?   @db.VarChar(100)
+  ciudad                           String?   @db.VarChar(100)
+  rol                              String    @default("USER") @db.VarChar(20)
+  estado                           Boolean   @default(true)
+  email_verificado_en              DateTime? @default(now()) @db.Timestamptz
+  token_version                    Int       @default(0)
+  intentos_login_fallidos          Int       @default(0)
+  bloqueado_hasta                  DateTime? @db.Timestamptz
+  dispositivo_historial_registrado Boolean   @default(false)
+  fecha_registro                   DateTime  @default(now()) @db.Timestamptz
+  ultimo_acceso                    DateTime? @db.Timestamptz
+
+  perfil_financiero                   perfil_financiero?
+  cuentas                             cuenta[]
+  categorias                          categoria[]
+  dispositivos                        dispositivo[]
+  transacciones                       transaccion[]
+  patron_comportamiento               patron_comportamiento?
+  presupuestos                        presupuesto[]
+  metas_ahorro                        meta_ahorro[]
+  consejos_financieros                consejo_financiero[]
+  alertas_fraude                      alerta_fraude[]
+  exportaciones_transacciones_archivo transaccion_archivo_exportacion[]
+  eventos_transaccion_archivados      evento_transaccion_archivado[]
+  analisis_gastos                     analisis_gastos[]
+  reportes_mensuales                  reporte_mensual[]
+  logs_auditoria                      log_auditoria[]
+
+  @@index([estado], map: "idx_usuarios_estado")
+  @@index([nombre_completo(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_usuarios_nombre_trgm")
+  @@map("usuarios")
+  @@schema("trida")
+}
+
+model perfil_financiero {
+  id_perfil           Int      @id @default(autoincrement())
+  id_usuario          Int      @unique(map: "perfil_financiero_id_usuario_key")
+  ingreso_mensual     Decimal  @default(0) @db.Decimal(15, 2)
+  moneda_preferida    String   @default("COP") @db.Char(3)
+  tolerancia_riesgo   String   @default("MEDIA") @db.VarChar(10)
+  meta_ahorro_mensual Decimal  @default(0) @db.Decimal(15, 2)
+  fecha_actualizacion DateTime @default(now()) @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@map("perfil_financiero")
+  @@schema("trida")
+}
+
+model cuenta {
+  id_cuenta          Int      @id @default(autoincrement())
+  id_usuario         Int
+  nombre             String   @db.VarChar(100)
+  entidad            String?  @db.VarChar(100)
+  tipo               String   @db.VarChar(20)
+  numero_enmascarado String?  @db.VarChar(20)
+  color              String   @default("#8B5CF6") @db.VarChar(20)
+  saldo_inicial      Decimal  @default(0) @db.Decimal(15, 2)
+  saldo_actual       Decimal  @default(0) @db.Decimal(15, 2)
+  estado             Boolean  @default(true)
+  fecha_creacion     DateTime @default(now()) @db.Timestamptz
+
+  usuario                 usuario              @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  transacciones           transaccion[]        @relation("CuentaOrigen")
+  transacciones_recibidas transaccion[]        @relation("CuentaDestino")
+  consejos                consejo_financiero[]
+
+  @@index([id_usuario], map: "idx_cuentas_usuario")
+  @@map("cuentas")
+  @@schema("trida")
+}
+
+model categoria {
+  id_categoria   Int      @id @default(autoincrement())
+  id_usuario     Int?
+  nombre         String   @db.VarChar(80)
+  tipo           String   @db.VarChar(10)
+  icono          String?  @db.VarChar(50)
+  color          String   @default("#8B5CF6") @db.VarChar(20)
+  es_default     Boolean  @default(false)
+  estado         Boolean  @default(true)
+  fecha_creacion DateTime @default(now()) @db.Timestamptz
+
+  usuario       usuario?      @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  transacciones transaccion[]
+  presupuestos  presupuesto[]
+  metas_ahorro  meta_ahorro[]
+
+  @@unique([id_usuario, nombre], map: "uq_categoria_user")
+  @@index([id_usuario, estado], map: "idx_categories_owner_state")
+  @@index([id_usuario], map: "idx_categorias_usuario")
+  @@index([tipo], map: "idx_categorias_tipo")
+  @@map("categorias")
+  @@schema("trida")
+}
+
+model dispositivo {
+  id_dispositivo      Int      @id @default(autoincrement())
+  id_usuario          Int
+  tipo_dispositivo    String   @db.VarChar(50)
+  identificador_unico String   @db.VarChar(255)
+  sistema_operativo   String?  @db.VarChar(100)
+  navegador           String?  @db.VarChar(100)
+  confiable           Boolean  @default(false)
+  fecha_primer_uso    DateTime @default(now()) @db.Timestamptz
+  fecha_ultimo_uso    DateTime @default(now()) @db.Timestamptz
+
+  usuario       usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  ubicaciones   ubicacion[]
+  transacciones transaccion[]
+
+  @@unique([id_usuario, identificador_unico], map: "uq_dispositivo_user_identifier")
+  @@index([id_usuario], map: "idx_dispositivos_usuario")
+  @@index([confiable], map: "idx_dispositivos_conf")
+  @@map("dispositivos")
+  @@schema("trida")
+}
+
+model ubicacion {
+  id_ubicacion   Int      @id @default(autoincrement())
+  id_dispositivo Int?
+  direccion_ip   String?  @db.Inet
+  pais           String?  @db.VarChar(100)
+  ciudad         String?  @db.VarChar(100)
+  latitud        Decimal? @db.Decimal(9, 6)
+  longitud       Decimal? @db.Decimal(9, 6)
+  fecha_registro DateTime @default(now()) @db.Timestamptz
+
+  dispositivo   dispositivo?  @relation(fields: [id_dispositivo], references: [id_dispositivo], onDelete: SetNull)
+  transacciones transaccion[]
+
+  @@index([id_dispositivo], map: "idx_ubicaciones_disp")
+  @@index([ciudad], map: "idx_ubicaciones_ciudad")
+  @@map("ubicaciones")
+  @@schema("trida")
+}
+
+model transaccion {
+  id_transaccion                 Int       @id @default(autoincrement())
+  id_usuario                     Int
+  id_cuenta                      Int?
+  id_cuenta_destino              Int?
+  id_categoria                   Int?
+  id_dispositivo                 Int?
+  id_ubicacion                   Int?
+  tipo_movimiento                String    @db.VarChar(15)
+  monto                          Decimal   @db.Decimal(15, 2)
+  moneda                         String    @default("COP") @db.Char(3)
+  descripcion                    String?   @db.VarChar(255)
+  comercio                       String?   @db.VarChar(150)
+  canal                          String    @default("web") @db.VarChar(20)
+  fuente_externa                 String?   @db.VarChar(30)
+  id_evento_externo              String?   @db.VarChar(160)
+  huella_evento_externo          String?   @db.Char(64)
+  confirmacion_correo_enviado_en DateTime? @db.Timestamptz
+  es_recurrente                  Boolean   @default(false)
+  score_anomalia                 Decimal?  @db.Decimal(5, 2)
+  estado                         String    @default("CONFIRMADA") @db.VarChar(20)
+  fecha_transaccion              DateTime  @default(now()) @db.Timestamptz
+
+  usuario        usuario         @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  cuenta         cuenta?         @relation("CuentaOrigen", fields: [id_cuenta], references: [id_cuenta], onDelete: SetNull)
+  cuenta_destino cuenta?         @relation("CuentaDestino", fields: [id_cuenta_destino], references: [id_cuenta], onDelete: Restrict)
+  categoria      categoria?      @relation(fields: [id_categoria], references: [id_categoria], onDelete: SetNull)
+  dispositivo    dispositivo?    @relation(fields: [id_dispositivo], references: [id_dispositivo], onDelete: SetNull)
+  ubicacion      ubicacion?      @relation(fields: [id_ubicacion], references: [id_ubicacion], onDelete: SetNull)
+  alertas        alerta_fraude[]
+
+  @@unique([id_cuenta, fuente_externa, id_evento_externo], map: "uq_tx_external_event")
+  @@index([id_usuario], map: "idx_tx_usuario")
+  @@index([id_cuenta], map: "idx_tx_cuenta")
+  @@index([id_cuenta_destino], map: "idx_tx_cuenta_destino")
+  @@index([id_categoria], map: "idx_tx_categoria")
+  @@index([id_ubicacion], map: "idx_tx_ubicacion")
+  @@index([id_dispositivo], map: "idx_tx_dispositivo")
+  @@index([fecha_transaccion(sort: Desc)], map: "idx_tx_fecha")
+  @@index([id_usuario, fecha_transaccion(sort: Desc)], map: "idx_tx_usuario_fecha")
+  @@index([id_usuario, id_categoria, fecha_transaccion], map: "idx_tx_user_cat_fecha")
+  @@index([tipo_movimiento], map: "idx_tx_tipo")
+  @@index([estado], map: "idx_tx_estado")
+  @@map("transacciones")
+  @@schema("trida")
+}
+
+model transaccion_archivo_exportacion {
+  id_exportacion    Int       @id @default(autoincrement())
+  id_usuario        Int
+  ids_transacciones Int[]     @default([])
+  fecha_corte       DateTime  @db.Timestamptz
+  fecha_creacion    DateTime  @default(now()) @db.Timestamptz
+  fecha_expiracion  DateTime  @db.Timestamptz
+  fecha_descarga    DateTime? @db.Timestamptz
+  fecha_eliminacion DateTime? @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@index([id_usuario, fecha_expiracion], map: "idx_tx_archive_user_expiry")
+  @@map("exportaciones_transacciones_archivo")
+  @@schema("trida")
+}
+
+model evento_transaccion_archivado {
+  id_evento_archivado     Int      @id @default(autoincrement())
+  id_usuario              Int
+  id_cuenta               Int
+  fuente_externa          String   @db.VarChar(30)
+  id_evento_externo       String   @db.VarChar(160)
+  id_transaccion_original Int
+  estado_original         String   @db.VarChar(20)
+  huella_evento           String   @db.Char(64)
+  fecha_archivado         DateTime @default(now()) @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@unique([id_cuenta, fuente_externa, id_evento_externo], map: "uq_tx_archived_event")
+  @@unique([id_transaccion_original], map: "uq_tx_archived_original")
+  @@index([id_usuario, fecha_archivado], map: "idx_tx_archived_user_date")
+  @@map("eventos_transacciones_archivados")
+  @@schema("trida")
+}
+
+model patron_comportamiento {
+  id_patron              Int      @id @default(autoincrement())
+  id_usuario             Int      @unique(map: "patron_comportamiento_id_usuario_key")
+  gasto_diario_promedio  Decimal  @default(0) @db.Decimal(15, 2)
+  gasto_diario_desv      Decimal  @default(0) @db.Decimal(15, 2)
+  categorias_top         Json     @default("[]")
+  ubicaciones_frecuentes Json     @default("[]")
+  horarios_habituales    Json     @default("{}")
+  comercios_frecuentes   Json     @default("[]")
+  fecha_actualizacion    DateTime @default(now()) @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@map("patron_comportamiento")
+  @@schema("trida")
+}
+
+model presupuesto {
+  id_presupuesto Int      @id @default(autoincrement())
+  id_usuario     Int
+  id_categoria   Int?
+  limite_mensual Decimal  @db.Decimal(15, 2)
+  mes            Int      @db.SmallInt
+  anio           Int      @db.SmallInt
+  fecha_creacion DateTime @default(now()) @db.Timestamptz
+
+  usuario   usuario    @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  categoria categoria? @relation(fields: [id_categoria], references: [id_categoria], onDelete: SetNull)
+
+  @@unique([id_usuario, id_categoria, mes, anio], map: "uq_presup")
+  @@index([id_usuario, anio, mes], map: "idx_presup_usuario")
+  @@map("presupuestos")
+  @@schema("trida")
+}
+
+model meta_ahorro {
+  id_meta          Int       @id @default(autoincrement())
+  id_usuario       Int
+  id_categoria     Int?
+  nombre           String    @db.VarChar(120)
+  descripcion      String?
+  monto_objetivo   Decimal   @db.Decimal(15, 2)
+  monto_actual     Decimal   @default(0) @db.Decimal(15, 2)
+  fecha_limite     DateTime? @db.Date
+  estado           String    @default("ACTIVA") @db.VarChar(15)
+  fecha_creacion   DateTime  @default(now()) @db.Timestamptz
+  fecha_completada DateTime? @db.Timestamptz
+
+  usuario usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  categoria categoria?  @relation(fields: [id_categoria], references: [id_categoria], onDelete: SetNull, map: "metas_ahorro_id_categoria_fkey")
+  aportes aporte_meta[]
+
+  @@index([id_usuario], map: "idx_metas_usuario")
+  @@index([estado], map: "idx_metas_estado")
+  @@index([id_categoria], map: "idx_metas_categoria")
+  @@map("metas_ahorro")
+  @@schema("trida")
+}
+
+model aporte_meta {
+  id_aporte    Int      @id @default(autoincrement())
+  id_meta      Int
+  monto        Decimal  @db.Decimal(15, 2)
+  fecha_aporte DateTime @default(now()) @db.Timestamptz
+
+  meta meta_ahorro @relation(fields: [id_meta], references: [id_meta], onDelete: Cascade)
+
+  @@index([id_meta], map: "idx_aportes_meta")
+  @@map("aportes_meta")
+  @@schema("trida")
+}
+
+model consejo_financiero {
+  id_consejo     Int       @id @default(autoincrement())
+  id_usuario     Int
+  id_cuenta      Int?
+  tipo           String    @db.VarChar(20)
+  titulo         String    @db.VarChar(150)
+  descripcion    String
+  prioridad      String    @default("MEDIA") @db.VarChar(10)
+  leido          Boolean   @default(false)
+  fecha_generado DateTime  @default(now()) @db.Timestamptz
+  fecha_leido    DateTime? @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  cuenta  cuenta? @relation(fields: [id_cuenta], references: [id_cuenta], onDelete: SetNull)
+
+  @@index([id_usuario], map: "idx_consejos_usuario")
+  @@map("consejos_financieros")
+  @@schema("trida")
+}
+
+model alerta_fraude {
+  id_alerta       Int       @id @default(autoincrement())
+  id_usuario      Int
+  id_transaccion  Int
+  severidad       String    @db.VarChar(10)
+  motivo          String
+  estado          String    @default("PENDIENTE") @db.VarChar(15)
+  fecha_detectada DateTime  @default(now()) @db.Timestamptz
+  fecha_resuelta  DateTime? @db.Timestamptz
+  accion_usuario  String?   @db.VarChar(20)
+
+  usuario     usuario     @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  transaccion transaccion @relation(fields: [id_transaccion], references: [id_transaccion], onDelete: Cascade)
+
+  @@index([id_usuario], map: "idx_alertas_usuario")
+  @@index([estado], map: "idx_alertas_estado")
+  @@index([severidad], map: "idx_alertas_severidad")
+  @@index([id_transaccion, fecha_detectada(sort: Desc)], map: "idx_alertas_tx_fecha")
+  @@map("alertas_fraude")
+  @@schema("trida")
+}
+
+model analisis_gastos {
+  id_analisis          Int      @id @default(autoincrement())
+  id_usuario           Int
+  periodo              String   @db.VarChar(10)
+  fecha_inicio         DateTime @db.Date
+  fecha_fin            DateTime @db.Date
+  total_ingresos       Decimal  @default(0) @db.Decimal(15, 2)
+  total_gastos         Decimal  @default(0) @db.Decimal(15, 2)
+  total_ahorro         Decimal  @default(0) @db.Decimal(15, 2)
+  desglose_categorias  Json     @default("{}")
+  comparativa_anterior Json     @default("{}")
+  fecha_generado       DateTime @default(now()) @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@unique([id_usuario, periodo, fecha_inicio], map: "uq_analisis")
+  @@index([id_usuario, periodo, fecha_inicio(sort: Desc)], map: "idx_analisis_user_per")
+  @@map("analisis_gastos")
+  @@schema("trida")
+}
+
+model reporte_mensual {
+  id_reporte     Int      @id @default(autoincrement())
+  id_usuario     Int
+  anio           Int      @db.SmallInt
+  mes            Int      @db.SmallInt
+  score_salud    Decimal  @default(0) @db.Decimal(5, 2)
+  resumen        Json     @default("{}")
+  ruta_archivo   String?
+  fecha_generado DateTime @default(now()) @db.Timestamptz
+
+  usuario usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+
+  @@unique([id_usuario, anio, mes], map: "uq_rep_mes")
+  @@index([id_usuario, anio(sort: Desc), mes(sort: Desc)], map: "idx_reportes_usuario")
+  @@map("reportes_mensuales")
+  @@schema("trida")
+}
+
+model log_auditoria {
+  id_log           Int      @id @default(autoincrement())
+  id_usuario       Int?
+  tipo_accion      String   @db.VarChar(50)
+  entidad_afectada String   @db.VarChar(50)
+  id_entidad       Int?
+  descripcion      String?
+  direccion_ip     String?  @db.Inet
+  fecha_accion     DateTime @default(now()) @db.Timestamptz
+
+  usuario usuario? @relation(fields: [id_usuario], references: [id_usuario], onDelete: SetNull)
+
+  @@index([id_usuario], map: "idx_logs_usuario")
+  @@index([fecha_accion(sort: Desc)], map: "idx_logs_fecha")
+  @@index([tipo_accion], map: "idx_logs_tipo")
+  @@map("logs_auditoria")
+  @@schema("trida")
+}

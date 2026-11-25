@@ -1,0 +1,178 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #111117;
+  --color-bg-rgb: 17 17 23;
+  --color-surface: #1a1922;
+  --color-surface-rgb: 26 25 34;
+  --color-surface-hover: #252330;
+  --color-surface-hover-rgb: 37 35 48;
+  --color-border: #343141;
+  --color-border-rgb: 52 49 65;
+
+  --color-text-primary: #f7f5fb;
+  --color-text-primary-rgb: 247 245 251;
+  --color-text-secondary: #c0bacd;
+  --color-text-secondary-rgb: 192 186 205;
+  --color-text-muted: #8d879b;
+  --color-text-muted-rgb: 141 135 155;
+
+  --color-primary: #a78bfa;
+  --color-primary-rgb: 167 139 250;
+  --color-primary-hover: #8b5cf6;
+  --color-primary-hover-rgb: 139 92 246;
+  --color-primary-contrast: #211a31;
+  --color-primary-contrast-rgb: 33 26 49;
+  --map-popup-bg: #5b3a9d;
+  --map-popup-hover: #4a2d80;
+
+  --color-income: #10b981;
+  --color-income-rgb: 16 185 129;
+  --color-expense: #ef4444;
+  --color-expense-rgb: 239 68 68;
+  --color-saving: #9b8afb;
+  --color-saving-rgb: 155 138 251;
+
+  /* Colores de Riesgo / Alertas */
+  --risk-low: #10b981;
+  --risk-low-rgb: 16 185 129;
+  --risk-medium: #f59e0b;
+  --risk-medium-rgb: 245 158 11;
+  --risk-high: #f97316;
+  --risk-high-rgb: 249 115 22;
+  --risk-critical: #ef4444;
+  --risk-critical-rgb: 239 68 68;
+
+  /* Estados de Presupuesto */
+  --color-budget-ok: #10b981;
+  --color-budget-ok-rgb: 16 185 129;
+  --color-budget-warn: #f59e0b;
+  --color-budget-warn-rgb: 245 158 11;
+  --color-budget-over: #ef4444;
+  --color-budget-over-rgb: 239 68 68;
+
+  --color-bg-surface: var(--color-surface);
+  --color-bg-surface-hover: var(--color-surface-hover);
+  --color-bg-card: var(--color-surface);
+  --color-bg-secondary: var(--color-surface-hover);
+  --color-bg-hover: var(--color-surface-hover);
+  --color-border-subtle: var(--color-border);
+  --color-text-subtle: var(--color-text-secondary);
+  --color-primary-500: var(--color-primary);
+  --color-primary-light: rgb(var(--color-primary-rgb) / 0.12);
+  --color-success: var(--color-income);
+  --color-success-light: rgb(var(--color-income-rgb) / 0.12);
+  --color-danger: var(--color-expense);
+  --color-danger-light: rgb(var(--color-expense-rgb) / 0.12);
+  --color-warning: var(--color-budget-warn);
+  --color-warning-light: rgb(var(--color-budget-warn-rgb) / 0.12);
+
+  /* Paleta de Categorías */
+  --cat-1: #8b5cf6;
+  --cat-2: #ec4899;
+  --cat-3: #8b5cf6;
+  --cat-4: #14b8a6;
+  --cat-5: #f59e0b;
+  --cat-6: #06b6d4;
+  --cat-7: #84cc16;
+  --cat-8: #f97316;
+}
+
+[data-theme="light"] {
+  --color-bg: #f8f7fc;
+  --color-bg-rgb: 248 247 252;
+  --color-surface: #ffffff;
+  --color-surface-rgb: 255 255 255;
+  --color-surface-hover: #f0eef7;
+  --color-surface-hover-rgb: 240 238 247;
+  --color-border: #e3dfed;
+  --color-border-rgb: 227 223 237;
+
+  --color-text-primary: #251e35;
+  --color-text-primary-rgb: 37 30 53;
+  --color-text-secondary: #625a73;
+  --color-text-secondary-rgb: 98 90 115;
+  --color-text-muted: #8d869b;
+  --color-text-muted-rgb: 141 134 155;
+
+  --color-primary: #6d4acb;
+  --color-primary-rgb: 109 74 203;
+  --color-primary-hover: #5739b2;
+  --color-primary-hover-rgb: 87 57 178;
+  --color-primary-contrast: #ffffff;
+  --color-primary-contrast-rgb: 255 255 255;
+  --map-popup-bg: #5739b2;
+  --map-popup-hover: #462a96;
+
+  --color-income: #059669;
+  --color-income-rgb: 5 150 105;
+  --color-expense: #dc2626;
+  --color-expense-rgb: 220 38 38;
+  --color-saving: #6d4acb;
+  --color-saving-rgb: 109 74 203;
+
+  /* Riesgo en claro (más contraste) */
+  --risk-low: #059669;
+  --risk-low-rgb: 5 150 105;
+  --risk-medium: #d97706;
+  --risk-medium-rgb: 217 119 6;
+  --risk-high: #ea580c;
+  --risk-high-rgb: 234 88 12;
+  --risk-critical: #dc2626;
+  --risk-critical-rgb: 220 38 38;
+
+  --color-budget-ok: #059669;
+  --color-budget-ok-rgb: 5 150 105;
+  --color-budget-warn: #d97706;
+  --color-budget-warn-rgb: 217 119 6;
+  --color-budget-over: #dc2626;
+  --color-budget-over-rgb: 220 38 38;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: "Inter", system-ui, sans-serif;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.trida-map-popup .maplibregl-popup-content {
+  border: 1px solid var(--map-popup-hover);
+  border-radius: 12px;
+  background: var(--map-popup-bg);
+  color: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+}
+
+.trida-map-popup .maplibregl-popup-tip {
+  border-top-color: var(--map-popup-bg);
+  border-right-color: var(--map-popup-bg);
+  border-bottom-color: var(--map-popup-bg);
+  border-left-color: var(--map-popup-bg);
+}
+
+.trida-map-popup .maplibregl-popup-close-button {
+  color: #fff;
+  font-size: 18px;
+}
+
+.trida-map-popup .maplibregl-popup-close-button:hover {
+  background: var(--map-popup-hover);
+  color: #fff;
+}
+
+.trida-map-popup-merchant {
+  display: block;
+  padding-right: 12px;
+  font-size: 13px;
+}
+
+.trida-map-popup-details {
+  margin: 4px 0 0;
+  color: rgb(255 255 255 / 0.88);
+  font-size: 12px;
+}
