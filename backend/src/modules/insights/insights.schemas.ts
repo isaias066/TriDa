@@ -10,3 +10,11 @@ export const insightsQuerySchema = z.object({
 });
 
 export type InsightsQueryInput = z.infer<typeof insightsQuerySchema>;
+
+export const insightsChatSchema = z.object({
+  mensaje: z.string().trim().min(1, "Escribe una consulta").max(1000),
+  periodo_dias: z.coerce.number().int().min(7).max(365).default(30),
+  id_cuenta: z.coerce.number().int().positive().max(MAX_POSTGRES_INT).optional(),
+});
+
+export type InsightsChatInput = z.infer<typeof insightsChatSchema>;
