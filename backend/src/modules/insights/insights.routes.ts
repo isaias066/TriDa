@@ -8,5 +8,6 @@ router.use(requireAuth);
 
 router.get("/", insightsController.getInsights);
 router.post("/scan-message", insightsController.scanMessage);
+router.post("/chat", insightsController.chat);
 
 export default router;

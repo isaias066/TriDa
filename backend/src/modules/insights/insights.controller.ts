@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { AppError } from "../../utils/AppError.js";
 import { insightsService } from "./insights.service.js";
-import { insightsQuerySchema } from "./insights.schemas.js";
+import { insightsQuerySchema, insightsChatSchema } from "./insights.schemas.js";
 
 const IA_SERVICE_URL = process.env.IA_SERVICE_URL || "http://127.0.0.1:5000";
 
@@ -38,6 +38,16 @@ export const insightsController = {
       }
 
       const result = await response.json();
+      sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  },
+  async chat(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id_usuario;
+      const { mensaje, periodo_dias, id_cuenta } = insightsChatSchema.parse(req.body);
+      const result = await insightsService.chat(userId, mensaje, periodo_dias, id_cuenta);
       sendSuccess(res, result);
     } catch (error) {
       next(error);

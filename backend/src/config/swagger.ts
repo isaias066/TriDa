@@ -1011,6 +1011,18 @@ const responseDataSchemas: Record<string, OpenApiSchema> = {
       consejos: ["Revisa tus gastos del periodo."],
     },
   ),
+  InsightsChatData: objectSchema(
+    {
+      respuesta: stringSchema("Informe financiero del periodo."),
+      categoria: stringSchema("REPORTE_GASTOS"),
+      sugerencias_rapidas: arraySchema(stringSchema("Revisar alertas")),
+    },
+    {
+      respuesta: "Informe financiero del periodo.",
+      categoria: "REPORTE_GASTOS",
+      sugerencias_rapidas: ["Revisar alertas", "Dame consejos directos"],
+    },
+  ),
   ReportSummaryData: objectSchema(
     {
       periodo: objectSchema({
@@ -1276,6 +1288,7 @@ const successSchemaByOperation: Record<string, Record<string, string>> = {
   "/api/v2/profile": { get: "UserProfileData", patch: "UserProfileData" },
   "/api/v2/profile/behavior-pattern": { get: "BehaviorPatternData" },
   "/api/v2/insights": { get: "InsightsData" },
+  "/api/v2/insights/chat": { post: "InsightsChatData" },
   "/api/v2/reports/summary": { get: "ReportSummaryData" },
   "/api/v2/reports/by-category": { get: "ReportByCategoryData" },
   "/api/v2/reports/transactions": { get: "ReportTransactionsData" },
@@ -3179,6 +3192,35 @@ const options: swaggerJsdoc.Options = {
           responses: {
             "200": {
               description: "Resumen, top categorías/comercios y consejos",
+            },
+          },
+        },
+      },
+
+      "/api/v2/insights/chat": {
+        post: {
+          tags: ["Insights"],
+          summary: "Chatbot asesor financiero y de seguridad pasiva",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["mensaje"],
+                  properties: {
+                    mensaje: { type: "string", minLength: 1, maxLength: 1000 },
+                    periodo_dias: { type: "integer", default: 30, minimum: 7, maximum: 365 },
+                    id_cuenta: { type: "integer", minimum: 1 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Respuesta contextual con sugerencias rápidas",
             },
           },
         },
