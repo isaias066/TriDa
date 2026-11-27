@@ -53,3 +53,15 @@ export interface InsightsOverview {
   guias_seguridad?: string[];
   reporte_riesgo_estafa?: ScamRiskReport | null;
 }
+
+export interface InsightChatRequest {
+  mensaje: string;
+  periodo_dias?: number;
+  id_cuenta?: number;
+}
+
+export interface InsightChatResponse {
+  categoria: string;
+  respuesta: string;
+  sugerencias_rapidas: string[];
+}
