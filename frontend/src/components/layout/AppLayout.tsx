@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/Toast";
 import { registerCurrentDevice } from "@/utils/deviceRegistration";
 import { cn } from "@/utils/cn";
+import { TriDaChatWidget } from "@/components/insights/TriDaChatWidget";
 
 const MOBILE_NAV_PATHS = [
   "/dashboard",
@@ -131,6 +132,7 @@ export const AppLayout: React.FC = () => {
           })}
         </nav>
       </div>
+      <TriDaChatWidget />
     </div>
   );
 };

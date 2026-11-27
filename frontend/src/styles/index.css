@@ -176,3 +176,18 @@ body {
   color: rgb(255 255 255 / 0.88);
   font-size: 12px;
 }
+
+.trida-chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.45) transparent;
+}
+.trida-chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.trida-chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.trida-chat-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 92, 246, 0.45);
+  border-radius: 9999px;
+}
